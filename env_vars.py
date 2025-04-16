@@ -1,6 +1,6 @@
 # Apache License
 # Version 2.0, January 2004
-# Author: Eugene Tkachenko
+# Author: Jonathan Tiritilli
 
 import os
 from log import Log

@@ -1,8 +1,9 @@
 # Apache License
-# Version 1.0, April, 2025
+# Version 2.0, January 2004
 # Author: Jonathan Tiritilli
 
 name: Markdown Reviewer GPT
+description: 'GitHub Action that reviews documentation markdown files using ChatGPT, and provides automated comments on pull requests.'
 
 on:
   pull_request:

@@ -1,6 +1,6 @@
 # Apache License
 # Version 2.0, January 2004
-# Author: Eugene Tkachenko
+# Author: Jonathan Tiritilli
 
 import requests
 from repository.repository import Repository, RepositoryError
