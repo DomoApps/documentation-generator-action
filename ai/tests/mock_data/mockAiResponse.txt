@@ -1,0 +1,47 @@
+ [
+    {
+      " position ":   3 ,
+      " body ":  " Consider  using  ' power ful '  instead  of  ' a  powerful '  for  improved  flow ."
+    },
+    {
+      " position ":   5 ,
+      " body ":  " Gr amm atically ,  ' Dive  in  to  explore '  could  be  improved  for  clarity .  Consider  re phr asing  to  ' Dive  in  and  explore '. "
+    },
+    {
+      " position ":   10 ,
+      " body ":  " The  term  ' builder '  in  ' partner  builder '  could  be  more  consistent  with  ' partner '  as  used  earlier ;  consider  changing  to  ' D omo  partners '  for  consistency ."
+    },
+    {
+      " position ":   16 ,
+      " body ":  " Replace  ' AI  Resource  Guide '  with  a  more  descriptive  term  or  subtitle  for  better  clarity ."
+    },
+    {
+      " position ":   21 ,
+      " body ":  " Consider  re phr asing  ' D omo 's  positioning  for  AI -powered  solutions '  to  ' Everyone  on  our  platform  should  leverage  D omo 's  AI -powered  solutions '  for  clarity ."
+    },
+    {
+      " position ":   37 ,
+      " body ":  " Check  for  consistency :  ' D omo 's  App store '  should  match  the  format  used  elsewhere  in  the  text ;  consider  standard izing  as  ' D omo  App store '. "
+    },
+    {
+      " path ":  " docs / Getting - Started / overview .md ",
+      " position ":   39 ,
+      " body ":  " Remove  the  apost rophe  in  ' resource 's '  as  it  is  incorrect  possess ive  use ;  it  should  be  ' resources '. "
+    },
+    {
+      " position ":   57 ,
+      " body ":  " Consider  re phr asing  ' D omo  has  a  robust  and  vibrant  community  that  creates  extraordinarily  useful  content '  as  it  repeats  ' extr avag antly  useful  content ';  simplify  for  clarity ."
+    },
+    {
+      " position ":   78 ,
+      " body ":  " Use  consistent  terminology  for  ' self -guid ed  learning ,  instructor -led  training '  to  maintain  clarity ;  unify  terms  across  listings ."
+    },
+    {
+      " position ":   80 ,
+      " body ":  " P unctuation  consistency :  Consider  a  comma  in  ' Read  guides  and  articles ,  view  how -to  videos  and  find  training  courses  on  the  D omo  platform '  for  improved  readability ."
+    },
+    {
+      " position ":   83 ,
+      " body ":  " In  ' they  can  leverage  for  fast  insights ',  consider  re phr asing  for  clarity  to  ' which  can  be  leveraged  for  fast  insights '. "
+    }
+ ]
