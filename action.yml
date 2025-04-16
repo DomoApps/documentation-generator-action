@@ -4,6 +4,9 @@
 
 name: Markdown Reviewer GPT
 description: 'GitHub Action that reviews documentation markdown files using ChatGPT, and provides automated comments on pull requests.'
+branding:
+  color: 'red'
+  icon: 'file'
 
 on:
   pull_request:
