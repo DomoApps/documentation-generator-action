@@ -2,7 +2,6 @@ import sys
 import os
 sys.path.append('../src')
 
-import pytest
 from unittest.mock import patch, ANY, MagicMock
 from ai.chat_gpt import ChatGPT
 from ai.ai_bot import AiBot
