@@ -30,6 +30,9 @@ jobs:
       - name: Print working directory
         run: pwd
 
+      - name: List files in current directory
+        run: ls -la
+
       - name: Install dependencies
         shell: bash
         run: |
