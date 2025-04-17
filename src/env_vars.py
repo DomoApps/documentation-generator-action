@@ -3,7 +3,7 @@
 # Author: Jonathan Tiritilli
 
 import os
-from log import Log
+from src.log import Log
 
 class EnvVars:
     def __init__(self):

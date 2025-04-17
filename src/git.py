@@ -4,7 +4,7 @@
 
 import subprocess
 from typing import List
-from log import Log
+from src.log import Log
 
 class Git:
 

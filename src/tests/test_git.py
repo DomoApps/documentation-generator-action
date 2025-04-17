@@ -3,7 +3,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 import unittest
-from git import Git
+from src.git import Git
 class TestGit(unittest.TestCase):
 
     def test_prep_diff_for_ai(self):

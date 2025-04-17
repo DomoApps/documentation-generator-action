@@ -3,13 +3,13 @@
 # Author: Jonathan Tiritilli
 
 import os
-from git import Git 
+from src.git import Git 
 from pathlib import Path
 from ai.chat_gpt import ChatGPT
 from openai import OpenAI
 from ai.ai_bot import AiBot
-from log import Log
-from env_vars import EnvVars
+from src.log import Log
+from src.env_vars import EnvVars
 from repository.github import GitHub
 from repository.repository import RepositoryError
 

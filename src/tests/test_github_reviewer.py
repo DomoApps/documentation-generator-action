@@ -1,11 +1,11 @@
 import sys
 import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../../')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 import os
 from unittest.mock import patch, MagicMock, ANY
 import pytest
-from content.docreviewer.github_reviewer import main
+from github_reviewer import main
 from unittest.mock import mock_open
 
 @patch.dict(os.environ, {
@@ -19,9 +19,9 @@ from unittest.mock import mock_open
     "CHATGPT_MODEL": "gpt-4",
     "TARGET_EXTENSIONS": "py,js"
 })
-@patch("content.docreviewer.github_reviewer.Git")
-@patch("content.docreviewer.github_reviewer.GitHub")
-@patch("content.docreviewer.github_reviewer.ChatGPT")
+@patch("github_reviewer.Git")
+@patch("github_reviewer.GitHub")
+@patch("github_reviewer.ChatGPT")
 @patch("builtins.open", new_callable=mock_open, read_data="print('Hello')")
 def test_main(mock_file, mock_chat_gpt, mock_github, mock_git):
     # Mock Git methods
