@@ -6,10 +6,6 @@ name: Markdown Reviewer GPT
 
 on:
   workflow_call:
-    inputs:
-      config-path:
-        required: true
-        type: string
     secrets:
       CHATGPT_KEY:
         required: true
