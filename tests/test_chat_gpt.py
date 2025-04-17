@@ -5,7 +5,7 @@ sys.path.append('../src')
 from unittest.mock import patch, ANY, MagicMock
 from ai.chat_gpt import ChatGPT
 from ai.ai_bot import AiBot
-from src.log import Log
+from log import Log
 
 @patch("openai.ChatCompletion.create")
 def test_ai_request_diffs(mock_chat_completion_create):

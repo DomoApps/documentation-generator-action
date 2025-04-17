@@ -4,7 +4,7 @@
 
 from abc import ABC, abstractmethod
 from ai.line_comment import LineComment
-from src.log import Log
+from log import Log
 
 
 class AiBot(ABC):
