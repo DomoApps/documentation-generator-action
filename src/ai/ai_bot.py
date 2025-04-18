@@ -36,6 +36,7 @@ class AiBot(ABC):
       Return a JSON array of comments.
       If no issues are found, return an empty array [].
       Do not include any markdown, explanations, or additional text.
+      Make one comment per line. If you have multiple recommendations, combine it into a single comment.
 
     5. Example: Given this diff:
     index b21e242..bee2ab2 100644
