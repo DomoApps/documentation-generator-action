@@ -17,13 +17,12 @@ class EnvVars:
         self.head_ref = os.getenv('GITHUB_HEAD_REF') 
 
         self.chat_gpt_token = os.getenv('CHATGPT_KEY') 
-        self.chat_gpt_model = os.getenv('CHATGPT_MODEL') 
+        self.chat_gpt_model = os.getenv('CHATGPT_MODEL', 'gpt-4o') 
 
-        self.target_extensions = os.getenv('TARGET_EXTENSIONS')
+        self.target_extensions = os.getenv('TARGET_EXTENSIONS', 'py,js')
         self.target_extensions = [lang.strip() for lang in self.target_extensions.split(",")]
 
-        if len(self.target_extensions) == 0:
-            raise ValueError(f"Please specify TARGET_EXTENSIONS. Coma separated, could be, like: kt,java,py,js,swift,c,h. Only these files will be reviewed")
+        self.focus_areas = os.getenv('FOCUS_AREAS')
 
         self.env_vars = {
             "owner" : self.owner,
@@ -43,3 +42,5 @@ class EnvVars:
         else:
             Log.print_green("All required environment variables are set.")
         
+        if not self.focus_areas:
+            raise ValueError("FOCUS_AREAS environment variable is required.")

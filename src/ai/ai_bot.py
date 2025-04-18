@@ -16,13 +16,7 @@ class AiBot(ABC):
 
     Instructions:
     1. Focus Areas:
-      Spelling errors
-      Grammar issues
-      Style consistency
-      Clarity improvements
-      Formatting issues
-      Racism, sexism, and other forms of discrimination
-      Inappropriate language or content
+      {focus_areas}
 
     2. Output Format:
       [
@@ -93,9 +87,9 @@ class AiBot(ABC):
         pass
 
     @staticmethod
-    def build_ask_text(code, diffs) -> str:
+    def build_ask_text(code, diffs, focus_areas) -> str:
         return AiBot.__chat_gpt_ask_long.format(
-            no_response=AiBot.__no_response,
+            focus_areas=focus_areas,
             diffs=diffs,
             code=code
         )

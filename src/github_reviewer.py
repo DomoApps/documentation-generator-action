@@ -20,7 +20,7 @@ def main():
         vars = EnvVars()
         vars.check_vars()
         model = OpenAI(api_key = vars.chat_gpt_token)
-        ai = ChatGPT(model, vars.chat_gpt_model)
+        ai = ChatGPT(model, vars.chat_gpt_model, vars.focus_areas)
         github = GitHub(vars.token, vars.owner, vars.repo, vars.pull_number)
 
         remote_name = Git.get_remote_name()

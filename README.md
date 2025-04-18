@@ -15,47 +15,42 @@ To use this GitHub Action in your repository, follow these steps:
 1. Create a workflow file (e.g., `.github/workflows/review.yml`) in your repository:
 
    ```yaml
-   name: AI-Powered PR Review
-
+   name: Pull Request ChatGPT review
    on:
      pull_request:
        types: [opened, synchronize, reopened]
 
    jobs:
-     review:
-       runs-on: ubuntu-latest
-
-       steps:
-         - name: Checkout code
-           uses: actions/checkout@v3
-
-         - name: Run Documentation Reviewer Action
-           uses: your-username/doc_reviewer_action@v1
-           with:
-             repo_owner: ${{ github.repository_owner }}
-             repo_name: ${{ github.event.repository.name }}
-             pull_number: ${{ github.event.pull_request.number }}
-             github_token: ${{ secrets.GITHUB_TOKEN }}
-             chatgpt_key: ${{ secrets.CHATGPT_KEY }}
-             chatgpt_model: gpt-4
-             target_extensions: py,js
+     ai_pr_reviewer:
+       uses: domoapps/doc-reviewer-action/.github/workflows/action.yml@main
+       secrets:
+         CHATGPT_KEY: ${{ secrets.CHATGPT_KEY }}
+         CHATGPT_MODEL: ${{ secrets.CHATGPT_MODEL }}
+         API_KEY: ${{ secrets.API_KEY }}
    ```
 
-2. Add the required secrets to your repository:
-   - `GITHUB_TOKEN`: Automatically provided by GitHub Actions.
-   - `CHATGPT_KEY`: Your OpenAI API key.
+1. Add the Github Secrets to your repository:
+   - \*`GITHUB_TOKEN`: Your Github Access Token.
+     - **Required**
+   - \*`CHATGPT_KEY`: Your OpenAI API key.
+     - **Required**
+   - `CHATGPT_MODEL`: The AI model to use (e.g., `gpt-4`).
+     - Default: `gpt-4o`.
+1. Add the Github Variables for target file extensions to review:
+   - `TARGET_EXTENSIONS`: Comma-separated list of file extensions to review (e.g., `py,js`).
+     - Default: `py,js`.
 
 ## Inputs
 
-| Input Name         | Description                                                                 | Required | Default |
-|--------------------|-----------------------------------------------------------------------------|----------|---------|
-| `repo_owner`       | The owner of the repository.                                               | Yes      |         |
-| `repo_name`        | The name of the repository.                                                | Yes      |         |
-| `pull_number`      | The pull request number to review.                                         | Yes      |         |
-| `github_token`     | A GitHub personal access token with appropriate permissions.               | Yes      |         |
-| `chatgpt_key`      | Your OpenAI API key.                                                       | Yes      |         |
-| `chatgpt_model`    | The AI model to use (e.g., `gpt-4`).                                       | No       | gpt-4   |
-| `target_extensions`| Comma-separated list of file extensions to review (e.g., `py,js`).         | No       | py,js   |
+| Input Name          | Description                                                        | Required | Default |
+| ------------------- | ------------------------------------------------------------------ | -------- | ------- |
+| `repo_owner`        | The owner of the repository.                                       | Yes      |         |
+| `repo_name`         | The name of the repository.                                        | Yes      |         |
+| `pull_number`       | The pull request number to review.                                 | Yes      |         |
+| `github_token`      | A GitHub personal access token with appropriate permissions.       | Yes      |         |
+| `chatgpt_key`       | Your OpenAI API key.                                               | Yes      |         |
+| `chatgpt_model`     | The AI model to use (e.g., `gpt-4`).                               | No       | gpt-4   |
+| `target_extensions` | Comma-separated list of file extensions to review (e.g., `py,js`). | No       | py,js   |
 
 ## Outputs
 

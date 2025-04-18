@@ -7,16 +7,18 @@ from openai import OpenAI
 from ai.ai_bot import AiBot
 
 class ChatGPT(AiBot):
-    def __init__(self, client, model):
+    def __init__(self, client, model, focus_areas):
         """
-        Initialize ChatGPT with a client and model.
+        Initialize ChatGPT with a client, model, and focus areas.
 
         Args:
             client: An instance of the OpenAI client or a mock for testing.
             model: The model name to use for the OpenAI API.
+            focus_areas: The focus areas for the AI to consider.
         """
         self.__chat_gpt_model = model
         self.__client = client
+        self.focus_areas = focus_areas
 
     def build_request_payload(self, code, diffs):
         """
@@ -33,7 +35,7 @@ class ChatGPT(AiBot):
             "messages": [
                 {
                     "role": "user",
-                    "content": AiBot.build_ask_text(code=code, diffs=diffs),
+                    "content": AiBot.build_ask_text(code=code, diffs=diffs, focus_areas=self.focus_areas),
                 }
             ],
             "model": self.__chat_gpt_model,

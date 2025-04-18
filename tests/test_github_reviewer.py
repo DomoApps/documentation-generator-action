@@ -17,7 +17,8 @@ from unittest.mock import mock_open
     "GITHUB_HEAD_REF": "develop",
     "CHATGPT_KEY": "fake-chatgpt-key",
     "CHATGPT_MODEL": "gpt-4",
-    "TARGET_EXTENSIONS": "py,js"
+    "TARGET_EXTENSIONS": "py,js",
+    "FOCUS_AREAS": "performance,security",
 })
 @patch("github_reviewer.Git")
 @patch("github_reviewer.GitHub")

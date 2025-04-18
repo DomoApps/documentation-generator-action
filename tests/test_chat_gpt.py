@@ -17,8 +17,9 @@ def test_ai_request_diffs(mock_chat_completion_create):
     # Mock the nested structure of the OpenAI client
     mock_client = MagicMock()
     mock_client.chat.completions.create = mock_chat_completion_create
+    focus_areas = "performance,security"
 
-    ai = ChatGPT(client=mock_client, model="gpt-4")
+    ai = ChatGPT(client=mock_client, model="gpt-4", focus_areas=focus_areas)
     code = "def example_function():\n    pass"
     diffs = "- def example_function():\n+ def example_function(param):\n    pass"
 
@@ -33,7 +34,7 @@ def test_ai_request_diffs(mock_chat_completion_create):
         messages=[
             {
                 "role": "user",
-                "content": AiBot.build_ask_text(code=code, diffs=diffs),
+                "content": ai.build_ask_text(code=code, diffs=diffs, focus_areas=focus_areas),
             }
         ],
         model="gpt-4"
@@ -41,7 +42,7 @@ def test_ai_request_diffs(mock_chat_completion_create):
 
 @patch("openai.ChatCompletion.create")
 def test_build_request_payload(mock_chat_completion_create):
-    ai = ChatGPT(client=mock_chat_completion_create, model="gpt-4")
+    ai = ChatGPT(client=mock_chat_completion_create, model="gpt-4", focus_areas="performance,security")
     code = "def example_function():\n    pass"
     diffs = "- def example_function():\n+ def example_function(param):\n    pass"
 
