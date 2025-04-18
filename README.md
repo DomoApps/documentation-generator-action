@@ -39,18 +39,21 @@ To use this GitHub Action in your repository, follow these steps:
 1. Add the Github Variables for target file extensions to review:
    - `TARGET_EXTENSIONS`: Comma-separated list of file extensions to review (e.g., `py,js`).
      - Default: `py,js`.
+   - `FOCUS_AREAS`: Written instructions to be included in AI prompt for areas of focus.
+     - **Required**.
 
 ## Inputs
 
-| Input Name          | Description                                                        | Required | Default |
-| ------------------- | ------------------------------------------------------------------ | -------- | ------- |
-| `repo_owner`        | The owner of the repository.                                       | Yes      |         |
-| `repo_name`         | The name of the repository.                                        | Yes      |         |
-| `pull_number`       | The pull request number to review.                                 | Yes      |         |
-| `github_token`      | A GitHub personal access token with appropriate permissions.       | Yes      |         |
-| `chatgpt_key`       | Your OpenAI API key.                                               | Yes      |         |
-| `chatgpt_model`     | The AI model to use (e.g., `gpt-4`).                               | No       | gpt-4   |
-| `target_extensions` | Comma-separated list of file extensions to review (e.g., `py,js`). | No       | py,js   |
+| Input Name          | Description                                                                  | Required | Default |
+| ------------------- | ---------------------------------------------------------------------------- | -------- | ------- |
+| `repo_owner`        | The owner of the repository.                                                 | Yes      |         |
+| `repo_name`         | The name of the repository.                                                  | Yes      |         |
+| `pull_number`       | The pull request number to review.                                           | Yes      |         |
+| `github_token`      | A GitHub personal access token with appropriate permissions.                 | Yes      |         |
+| `chatgpt_key`       | Your OpenAI API key.                                                         | Yes      |         |
+| `chatgpt_model`     | The AI model to use (e.g., `gpt-4`).                                         | No       | gpt-4   |
+| `target_extensions` | Comma-separated list of file extensions to review (e.g., `py,js`).           | No       | py,js   |
+| `focus_areas`       | Specific areas to focus on during the review (e.g., `security,performance`). | No       |         |
 
 ## Outputs
 
