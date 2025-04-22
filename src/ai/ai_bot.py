@@ -33,9 +33,9 @@ class AiBot(ABC):
     4. Output Rules:
       Do not comment on removed (-) or context ( ) lines.
       Be concise and professional in your comments.
-      Return a JSON array of comments.
+      Return a valid JSON array of comments.
       If no issues are found, return an empty array [].
-      Do not include any markdown, explanations, or additional text.
+      Do not include any markdown (such as ```json), explanations, or additional text.
       Make one comment per line. If you have multiple recommendations, combine it into a single comment.
 
     5. Example: Given this diff:
