@@ -54,9 +54,9 @@ jobs:
           PULL_NUMBER: ${{ github.event.number }}
         run: python action-repo/src/github_reviewer.py
 
-      - name: Upload result as an artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: AI-requests
-          path: output.txt
-          retention-days: 1
+      # - name: Upload result as an artifact
+      #   uses: actions/upload-artifact@v3
+      #   with:
+      #     name: AI-requests
+      #     path: output.txt
+      #     retention-days: 1
