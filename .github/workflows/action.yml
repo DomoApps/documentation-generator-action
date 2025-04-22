@@ -7,9 +7,7 @@ name: Markdown Reviewer GPT
 on:
   workflow_call:
     secrets:
-      CHATGPT_MODEL:
-        required: true
-      API_KEY:
+      GITHUBAPI_KEY:
         required: true
 jobs:
   ai_pr_reviewer:
@@ -43,8 +41,8 @@ jobs:
           GITHUB_HEAD_REF: ${{ github.head_ref }}
           GITHUB_BASE_REF: ${{ github.base_ref }}
           CHATGPT_KEY: ${{ secrets.CHATGPT_KEY }}
-          CHATGPT_MODEL: ${{ secrets.CHATGPT_MODEL }}
-          GITHUB_TOKEN: ${{ secrets.API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUBAPI_KEY }}
+          CHATGPT_MODEL: ${{ vars.CHATGPT_MODEL }}
           TARGET_EXTENSIONS: ${{ vars.TARGET_EXTENSIONS }}
           FOCUS_AREAS: ${{ vars.FOCUS_AREAS }}
           REPO_OWNER: ${{ github.repository_owner }}

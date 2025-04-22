@@ -32,6 +32,8 @@ class EnvVars:
             "pull_number" : self.pull_number,
             "chat_gpt_token" : self.chat_gpt_token,
             "chat_gpt_model" : self.chat_gpt_model,
+            "target_extensions" : self.target_extensions,
+            "focus_areas" : self.focus_areas,
         }
 
     def check_vars(self):
@@ -41,6 +43,3 @@ class EnvVars:
             raise ValueError(f"The following environment variables are missing or empty: {missing_vars_str}")
         else:
             Log.print_green("All required environment variables are set.")
-        
-        if not self.focus_areas:
-            raise ValueError("FOCUS_AREAS environment variable is required.")
