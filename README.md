@@ -29,7 +29,7 @@ To use this GitHub Action in your repository, follow these steps:
    ```
 
 1. Add the Github Secrets to your repository:
-   - \*`GITHUB_TOKEN`: Your Github Access Token.
+   - \*`GITHUBAPI_TOKEN`: Your Github Access Token.
      - **Required**
 1. Add the Github Variables for target file extensions to review:
    - `TARGET_EXTENSIONS`: Comma-separated list of file extensions to review (e.g., `py,js`).
