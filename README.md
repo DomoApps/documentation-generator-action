@@ -22,11 +22,8 @@ To use this GitHub Action in your repository, follow these steps:
 
    jobs:
      ai_pr_reviewer:
-       uses: domoapps/doc-reviewer-action/.github/workflows/action.yml@main
-       secrets:
-         CHATGPT_KEY: ${{ secrets.CHATGPT_KEY }}
-         CHATGPT_MODEL: ${{ secrets.CHATGPT_MODEL }}
-         API_KEY: ${{ secrets.API_KEY }}
+       uses: eps/github-reviewer-action/.github/workflows/action.yml@main
+       secrets: inherit
    ```
 
 1. Add the Github Secrets to your repository:
