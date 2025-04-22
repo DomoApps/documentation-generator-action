@@ -7,8 +7,6 @@ name: Markdown Reviewer GPT
 on:
   workflow_call:
     secrets:
-      CHATGPT_KEY:
-        required: true
       CHATGPT_MODEL:
         required: true
       API_KEY:
