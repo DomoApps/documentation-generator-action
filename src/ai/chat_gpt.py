@@ -48,4 +48,9 @@ class ChatGPT(AiBot):
             model=payload["model"]
         )
         content = response.choices[0].message.content
+
+        # Remove markdown code block tags (```json ... ```) if present
+        import re
+        content = re.sub(r'```json\n(.*?)\n```', r'\1', content, flags=re.DOTALL)
+
         return content
