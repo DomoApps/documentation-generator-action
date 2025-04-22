@@ -9,6 +9,8 @@ This repository contains a reusable GitHub Action that leverages AI to automate 
 - **Customizable**: Supports configuration for target file extensions and AI model settings.
 
 ## Usage
+IMPORTANT NOTE:
+I haven't tested this across organizations. Our GHES Action Runners do not support actions on public repositories. This is very beta phase, so all feedback is welcome
 
 To use this GitHub Action in your repository, follow these steps:
 
