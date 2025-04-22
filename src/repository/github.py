@@ -14,8 +14,8 @@ class GitHub(Repository):
         self.pull_number = pull_number
         self.__header_accept_json = { "Authorization": f"token {token}" }
         self.__header_authorization = { "Accept": "application/vnd.github.v3+json" }
-        self.__url_add_comment = f"https://api.github.com/repos/{repo_owner}/{repo_name}/pulls/{pull_number}/comments"
-        self.__url_add_issue = f"https://api.github.com/repos/{repo_owner}/{repo_name}/issues/{pull_number}/comments"
+        self.__url_add_comment = f"https://git.empdev.domo.com/api/v3/repos/{repo_owner}/{repo_name}/pulls/{pull_number}/comments"
+        self.__url_add_issue = f"https://git.empdev.domo.com/api/v3/repos/{repo_owner}/{repo_name}/issues/{pull_number}/comments"
 
     def post_comment_to_line(self, text, commit_id, file_path, position):
         headers = self.__header_accept_json | self.__header_authorization
