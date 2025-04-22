@@ -25,7 +25,7 @@ jobs:
       - name: Checkout action repository
         uses: actions/checkout@v4
         with:
-          repository: eps/doc-reviewer-action
+          repository: eps/github-reviewer-action
           path: action-repo
 
       - name: Set up Python
