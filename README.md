@@ -38,6 +38,14 @@ To use this GitHub Action in your repository, follow these steps:
      - Default: `gpt-4o`.
    - `FOCUS_AREAS`: Written instructions to be included in AI prompt for areas of focus.
      - **Required**.
+     - Example:
+       ```performance: Ensure the code is optimized for performance, avoiding unnecessary re-renders and using efficient algorithms.
+         security: Check for potential security vulnerabilities, such as unsafe handling of user input or improper use of third-party libraries.
+         accessibility: Verify that the code adheres to accessibility standards (e.g., ARIA roles, keyboard navigation).
+         code_quality: Ensure the code is clean, maintainable, and follows best practices.
+         ui_consistency: Check for consistency in UI components and adherence to design guidelines.
+         naming_contentions: Ensure good conventions are used, and that the naming aligns with the rest of the file
+       ```
 
 ## Inputs
 
