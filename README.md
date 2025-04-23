@@ -64,5 +64,5 @@ This action does not produce any outputs but posts comments directly on the pull
 
 Contributions are welcome! Please follow these steps:
 
-1. Create a branch <your name>/<feature or bug>.
+1. Create a branch `<your name>/<feature or bug>`.
 1. Submit a pull request with a clear description of your changes.
