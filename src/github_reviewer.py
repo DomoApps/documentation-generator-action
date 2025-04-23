@@ -87,7 +87,7 @@ def main():
                     existing_positions = {comment['position'] for comment in existing_comments if 'position' in comment}
 
                     # Filter out responses that have matching positions with existing comments
-                    responses = [response for response in responses if response.position not in existing_positions]
+                    responses = [response for response in responses if response.line not in existing_positions]
 
                     result = False
                     for response in responses:
