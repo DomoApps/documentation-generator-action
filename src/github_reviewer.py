@@ -75,16 +75,30 @@ def main():
                 if len(responses) == 0:
                     Log.print_red("Responses where not parsed:", responses)
 
-                result = False
-                for response in responses:
-                    Log.print_green(f"Processing AI response: position={response.line}, text={response.text}")
-                    result = post_line_comment(github=github, file=file, text=response.text, line=response.line)
-                    if not result:
-                        Log.print_yellow(f"Posting general comment for file {file}")
-                        result = post_general_comment(github=github, file=file, text=response.text)
-                    if not result:
-                        Log.print_red("Failed to post any comments.")
-                        raise RepositoryError("Failed to post any comments.")
+                Log.print_green("Checking if responses are empty...")
+                if len(responses) == 0:
+                    Log.print_red("Responses are empty. Skipping get_existing_comments.")
+                else:
+                    Log.print_green("Responses are not empty. Proceeding to fetch existing comments.")
+                    # Fetch existing comments from the GitHub repository
+                    Log.print_green("Fetching existing comments from GitHub...")
+                    existing_comments = github.get_existing_comments()
+                    Log.print_green(f"Existing comments fetched: {existing_comments}")
+                    existing_positions = {comment['position'] for comment in existing_comments if 'position' in comment}
+
+                    # Filter out responses that have matching positions with existing comments
+                    responses = [response for response in responses if response.position not in existing_positions]
+
+                    result = False
+                    for response in responses:
+                        Log.print_green(f"Processing AI response: position={response.line}, text={response.text}")
+                        result = post_line_comment(github=github, file=file, text=response.text, line=response.line)
+                        if not result:
+                            Log.print_yellow(f"Posting general comment for file {file}")
+                            result = post_general_comment(github=github, file=file, text=response.text)
+                        if not result:
+                            Log.print_red("Failed to post any comments.")
+                            raise RepositoryError("Failed to post any comments.")
                     
 def post_line_comment(github: GitHub, file: str, text:str, line: int):
     Log.print_green("Posting line", file, line, text)
