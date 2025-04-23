@@ -24,7 +24,7 @@ To use this GitHub Action in your repository, follow these steps:
 
    jobs:
      ai_pr_reviewer:
-       uses: eps/github-reviewer-action/.github/workflows/action.yml@main
+       uses: eps/github-reviewer-action/.github/workflows/action.yml@<main or specific release tag>
        secrets: inherit
    ```
 
