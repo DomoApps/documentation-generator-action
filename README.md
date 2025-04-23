@@ -51,9 +51,6 @@ To use this GitHub Action in your repository, follow these steps:
 
 | Input Name          | Description                                                                  | Required | Default |
 | ------------------- | ---------------------------------------------------------------------------- | -------- | ------- |
-| `repo_owner`        | The owner of the repository.                                                 | Yes      |         |
-| `repo_name`         | The name of the repository.                                                  | Yes      |         |
-| `pull_number`       | The pull request number to review.                                           | Yes      |         |
 | `github_token`      | A GitHub personal access token with appropriate permissions.                 | Yes      |         |
 | `chatgpt_model`     | The AI model to use (e.g., `gpt-4`).                                         | No       | gpt-4o  |
 | `target_extensions` | Comma-separated list of file extensions to review (e.g., `py,js`).           | No       | py,js   |
@@ -67,10 +64,5 @@ This action does not produce any outputs but posts comments directly on the pull
 
 Contributions are welcome! Please follow these steps:
 
-1. Fork the repository.
-2. Create a new branch for your feature or bugfix.
-3. Submit a pull request with a clear description of your changes.
-
-## License
-
-This project is licensed under the MIT License. See the `LICENSE` file for details.
+1. Create a branch <your name>/<feature or bug>.
+1. Submit a pull request with a clear description of your changes.
