@@ -88,6 +88,9 @@ def main():
 
                     # Filter out responses that have matching positions with existing comments
                     responses = [response for response in responses if response.line not in existing_positions]
+                    
+                    # Log the remaining responses that will become comments
+                    Log.print_green(f"Remaining responses to be posted as comments: {responses}")
 
                     result = False
                     for response in responses:
