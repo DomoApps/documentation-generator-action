@@ -49,12 +49,12 @@ To use this GitHub Action in your repository, follow these steps:
 
 ## Inputs
 
-| Input Name          | Description                                                                  | Required | Default |
-| ------------------- | ---------------------------------------------------------------------------- | -------- | ------- |
-| `github_token`      | A GitHub personal access token with appropriate permissions.                 | Yes      |         |
-| `chatgpt_model`     | The AI model to use (e.g., `gpt-4`).                                         | No       | gpt-4o  |
-| `target_extensions` | Comma-separated list of file extensions to review (e.g., `py,js`).           | No       | py,js   |
-| `focus_areas`       | Specific areas to focus on during the review (e.g., `security,performance`). | No       |         |
+| Input Name          | Description                                                                  | Required | Default | Inclusion |
+| ------------------- | ---------------------------------------------------------------------------- | -------- | ------- | ---------
+| `github_token`      | A GitHub personal access token with appropriate permissions.                 | Yes      |         | Secret    |
+| `chatgpt_model`     | The AI model to use (e.g., `gpt-4`).                                         | No       | gpt-4o  | Vars      |
+| `target_extensions` | Comma-separated list of file extensions to review (e.g., `py,js`).           | No       | py,js   | Vars      |
+| `focus_areas`       | Specific areas to focus on during the review (e.g., `security,performance`). | No       |         | Vars      |
 
 ## Outputs
 
