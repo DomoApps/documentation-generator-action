@@ -83,7 +83,7 @@ def main():
                     # Fetch existing comments from the GitHub repository
                     Log.print_green("Fetching existing comments from GitHub...")
                     existing_comments = github.get_existing_comments()
-                    Log.print_green(f"Existing comments fetched: {existing_comments}")
+                    Log.print_green(f"Existing comments fetched")
                     existing_positions = {comment['position'] for comment in existing_comments if 'position' in comment}
 
                     # Filter out responses that have matching positions with existing comments
