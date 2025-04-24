@@ -64,5 +64,9 @@ This action does not produce any outputs but posts comments directly on the pull
 
 Contributions are welcome! Please follow these steps:
 
-1. Create a branch `<your name>/<feature or bug>`.
-1. Submit a pull request with a clear description of your changes.
+1. Create a branch `<your name>/<feature or bug>` from the `main` branch to ensure your changes are based on the latest code.
+2. Make your changes, ensuring they align with the project's coding standards and guidelines.
+3. Write clear and concise commit messages to describe your changes.
+4. Test your changes thoroughly to ensure they work as expected and do not introduce any new issues.
+5. Submit a pull request with a clear and detailed description of your changes, including the problem being solved, the approach taken, and any potential impacts.
+6. Engage in the review process by addressing feedback and making necessary updates to your pull request.
