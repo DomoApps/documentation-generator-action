@@ -1,0 +1,1 @@
+# Documentation Reviewer GitHub Action  This repository contains a reusable GitHub Action that leverages AI to automate the review of pull requests (PRs). The action integrates with OpenAI's GPT model to provide meaningful feedback on code changes, helping maintain code quality and streamline the review process.
