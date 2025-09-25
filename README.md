@@ -1,66 +1,306 @@
-# Documentation Reviewer GitHub Action
+# 🚀 YAML to Markdown Documentation Generator
 
-This repository contains a reusable GitHub Action that leverages AI to automate the review of pull requests (PRs). The action integrates with OpenAI's GPT model to provide meaningful feedback on code changes, helping maintain code quality and streamline the review process.
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-## Features
+A powerful GitHub Action that leverages AI to automatically generate professional Markdown documentation from YAML files. Perfect for API documentation, schema documentation, and configuration guides.
 
-- **AI-Powered Reviews**: Uses OpenAI's GPT model to analyze code changes and provide actionable feedback.
-- **GitHub Integration**: Automatically fetches PR details and posts comments directly on GitHub.
-- **Customizable**: Supports configuration for target file extensions and AI model settings.
+## ✨ Features
 
-## Usage
-IMPORTANT NOTE:
-I haven't tested this across organizations. Our GHES Action Runners do not support actions on public repositories. This is very beta phase, so all feedback is welcome
+- 🤖 **AI-Powered Generation**: Uses OpenAI's GPT models for intelligent content creation
+- 📄 **Template-Based**: Handlebars-style templates ensure consistent formatting
+- 🔄 **Iterative Refinement**: Multi-pass generation with quality scoring
+- 📊 **Quality Control**: Configurable completeness thresholds and validation
+- 🚀 **GitHub Actions Ready**: Both composite action and reusable workflow support
+- 📚 **Batch Processing**: Handle multiple YAML files simultaneously
+- ⚙️ **Highly Configurable**: Customize models, iterations, and output paths
 
-To use this GitHub Action in your repository, follow these steps:
+## 🎯 Quick Start
 
-1. Create a workflow file (e.g., `.github/workflows/review.yml`) in your repository:
+### Option 1: Composite Action (Recommended)
 
-   ```yaml
-   name: Pull Request ChatGPT review
-   on:
-     pull_request:
-       types: [opened, synchronize, reopened]
+```yaml
+name: Generate Documentation
+on: [push, pull_request]
 
-   jobs:
-     ai_pr_reviewer:
-       uses: eps/github-reviewer-action/.github/workflows/action.yml@<main or specific release tag>
-       secrets: inherit
-   ```
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-1. Add the Github Secrets to your repository:
-   - \*`GITHUBAPI_TOKEN`: Your Github Access Token.
-     - **Required**
-1. Add the Github Variables for target file extensions to review:
-   - `TARGET_EXTENSIONS`: Comma-separated list of file extensions to review (e.g., `py,js`).
-     - Default: `py,js`.
-   - `CHATGPT_MODEL`: The AI model to use (e.g., `gpt-4`).
-     - Default: `gpt-4o`.
-   - `FOCUS_AREAS`: Written instructions to be included in AI prompt for areas of focus.
-     - **Required**.
-     - Example:
-       ```performance: Ensure the code is optimized for performance, avoiding unnecessary re-renders and using efficient algorithms.
-         security: Check for potential security vulnerabilities, such as unsafe handling of user input or improper use of third-party libraries.
-         accessibility: Verify that the code adheres to accessibility standards (e.g., ARIA roles, keyboard navigation).
-         code_quality: Ensure the code is clean, maintainable, and follows best practices.
-         ui_consistency: Check for consistency in UI components and adherence to design guidelines.
-         naming_contentions: Ensure good conventions are used, and that the naming aligns with the rest of the file
-       ```
+      - name: Generate API Documentation
+        uses: DomoApps/documentation-generator-action@main
+        with:
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          yaml_input_path: './api-specs'
+          output_path: './docs'
+```
 
-## Inputs
+### Option 2: Reusable Workflow
 
-| Input Name          | Description                                                                  | Required | Default | Inclusion |
-| ------------------- | ---------------------------------------------------------------------------- | -------- | ------- | ---------
-| `github_token`      | A GitHub personal access token with appropriate permissions.                 | Yes      |         | Secret    |
-| `chatgpt_model`     | The AI model to use (e.g., `gpt-4`).                                         | No       | gpt-4o  | Vars      |
-| `target_extensions` | Comma-separated list of file extensions to review (e.g., `py,js`).           | No       | py,js   | Vars      |
-| `focus_areas`       | Specific areas to focus on during the review (e.g., `security,performance`). | No       |         | Vars      |
+```yaml
+name: Generate Documentation
+on: [push]
+
+jobs:
+  generate_docs:
+    uses: DomoApps/documentation-generator-action/.github/workflows/action.yml@main
+    with:
+      yaml_input_path: './api-specs'
+      output_path: './docs'
+      openai_model: 'gpt-4o'
+    secrets:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+```
+
+## 📋 Prerequisites
+
+1. **OpenAI API Key**: Add `OPENAI_API_KEY` to your repository secrets
+2. **YAML Files**: Place your YAML/YML files in the designated input directory
+3. **GitHub Actions**: Ensure Actions are enabled in your repository
+
+## ⚙️ Configuration Options
+
+| Input                    | Description                                  | Default   | Required |
+| ------------------------ | -------------------------------------------- | --------- | -------- |
+| `openai_api_key`         | OpenAI API key for AI processing             |           | ✅       |
+| `yaml_input_path`        | Path to directory containing YAML files      | `./yaml`  |          |
+| `output_path`            | Output directory for generated documentation | `./docs`  |          |
+| `template_path`          | Custom template file path                    | `default` |          |
+| `openai_model`           | AI model to use                              | `gpt-4o`  |          |
+| `max_iterations`         | Maximum refinement iterations                | `10`      |          |
+| `completeness_threshold` | Quality score threshold (0-100)              | `90`      |          |
+| `timeout_minutes`        | Maximum processing time                      | `30`      |          |
+
+## 🎨 Custom Templates
+
+Create your own Handlebars template for customized output:
+
+```handlebars
+# {{API_NAME}}
+
+> {{API_DESCRIPTION}}
+
+## Endpoints
+
+{{#each ENDPOINTS}}
+### {{METHOD}} {{PATH}}
+
+{{DESCRIPTION}}
+
+**Parameters:**
+{{#each PARAMETERS}}
+- `{{name}}` ({{type}}) - {{description}}
+{{/each}}
+{{/each}}
+```
+
+## 💡 Usage Examples
+
+### Basic API Documentation
+
+```yaml
+- uses: your-org/yaml-to-docs-action@v1
+  with:
+    openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+    yaml_input_path: './openapi'
+    output_path: './api-docs'
+```
+
+### Custom Configuration
+
+```yaml
+- uses: your-org/yaml-to-docs-action@v1
+  with:
+    openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+    yaml_input_path: './specs'
+    output_path: './documentation'
+    openai_model: 'gpt-4'
+    max_iterations: '15'
+    completeness_threshold: '95'
+    template_path: './custom-template.md'
+```
+
+### Commit Generated Docs Back to Repository
+
+```yaml
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate Documentation
+        uses: DomoApps/documentation-generator-action@main
+        with:
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+
+      - name: Commit Documentation
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add docs/
+          git diff --staged --quiet || git commit -m "📚 Update generated documentation"
+          git push
+```
+
+## Process Overview
+
+The action follows an iterative refinement process:
+
+1. **YAML Analysis**: Parses YAML files and extracts structure, data types, and relationships
+2. **Template Population**: Maps YAML data to template placeholders using AI
+3. **Documentation Generation**: Creates initial Markdown documentation
+4. **Quality Validation**: Scores documentation on completeness, accuracy, and clarity
+5. **Refinement Loop**: Iteratively improves documentation until exit conditions are met
+
+### Exit Conditions
+
+The process completes when:
+
+- Overall quality score ≥ completeness threshold (default: 90%)
+- All template placeholders are filled
+- No critical documentation gaps remain
+- Maximum iterations reached (default: 10)
+
+## Template System
+
+The action uses Handlebars-style templates with placeholders like:
+
+- `{{API_NAME}}` - API title
+- `{{HTTP_METHOD}}` - Request method
+- `{{#each PARAMETERS}}` - Parameter loops
+- `{{#if CONDITION}}` - Conditional sections
+
+See `samples/productAPI.template.md` for the complete template structure.
 
 ## Outputs
 
-This action does not produce any outputs but posts comments directly on the pull request.
+Generated documentation files are saved as GitHub artifacts and can be downloaded from the Actions tab.
 
-## Contributing
+## 🏗️ Hosting & Deployment
+
+### Repository Setup
+
+1. **Create a new repository** (recommended name: `documentation-generator-action`)
+2. **Copy this codebase** to your new repository
+3. **Update references** to point to your organization/repository
+4. **Create your first release** with proper versioning
+
+### Release Process
+
+```bash
+# Create and push your first release
+git tag -a v1.0.0 -m "Release v1.0.0: Initial stable release"
+git push origin v1.0.0
+
+# Create major version tag for easy consumption
+git tag -a v1 -m "Latest v1.x.x release"
+git push origin v1
+```
+
+### Repository Structure
+
+```text
+DomoApps/documentation-generator-action/
+├── .github/workflows/action.yml    # Reusable workflow
+├── action.yml                      # Composite action
+├── src/                           # Core Python code
+├── samples/                       # Example files
+├── tests/                        # Test suite
+├── README.md                     # This documentation
+├── CHANGELOG.md                  # Version history
+└── RELEASES.md                   # Release process
+```
+
+## 🧪 Testing & Examples
+
+### Local Testing
+
+```bash
+# Set environment variables
+export OPENAI_API_KEY="your-api-key"
+export YAML_INPUT_PATH="./samples"
+export MARKDOWN_OUTPUT_PATH="./output"
+export TEMPLATE_PATH="./samples/productAPI.template.md"
+
+# Run the generator
+python src/doc_generator_main.py
+```
+
+### Sample Files Included
+
+- **Input**: `samples/filesets.yaml` - Comprehensive API specification
+- **Template**: `samples/productAPI.template.md` - Professional API documentation template
+- **Expected Output**: Rich markdown with tables, code examples, and structured sections
+
+## 🚀 Usage in Different Scenarios
+
+### Scenario 1: Separate Repositories
+
+```yaml
+# In your API spec repository
+name: Generate API Docs
+on: [push]
+jobs:
+  docs:
+    uses: DomoApps/documentation-generator-action/.github/workflows/action.yml@main
+    with:
+      yaml_input_path: './specs'
+      output_path: './docs'
+    secrets:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+```
+
+### Scenario 2: Monorepo with Multiple APIs
+
+```yaml
+# Generate docs for multiple services
+name: Generate All Documentation
+on: [push]
+jobs:
+  user-service-docs:
+    uses: DomoApps/documentation-generator-action@main
+    with:
+      openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+      yaml_input_path: './services/user-api'
+      output_path: './docs/user-service'
+
+  payment-service-docs:
+    uses: DomoApps/documentation-generator-action@main
+    with:
+      openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+      yaml_input_path: './services/payment-api'
+      output_path: './docs/payment-service'
+```
+
+### Scenario 3: Documentation Website Integration
+
+```yaml
+# Generate docs and deploy to GitHub Pages
+name: Update Documentation Site
+on: [push]
+jobs:
+  generate-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate API Documentation
+        uses: DomoApps/documentation-generator-action@main
+        with:
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          yaml_input_path: './api-specs'
+          output_path: './docs-site/content/api'
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs-site
+```
+
+## 🤝 Contributing
 
 Contributions are welcome! Please follow these steps:
 

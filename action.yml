@@ -1,0 +1,201 @@
+# Apache License
+# Version 2.0, January 2004
+# Author: Jonathan Tiritilli
+
+name: 'YAML to Markdown Documentation Generator'
+description: 'Generate professional markdown documentation from YAML files using AI with iterative refinement'
+author: 'Jonathan Tiritilli'
+branding:
+  icon: file-text
+  color: blue
+
+inputs:
+  openai_api_key:
+    description: 'OpenAI API key for AI processing'
+    required: true
+  yaml_input_path:
+    description: 'Path to directory containing YAML files'
+    required: false
+    default: './yaml'
+  output_path:
+    description: 'Path to output directory for generated documentation'
+    required: false
+    default: './docs'
+  template_path:
+    description: 'Path to Handlebars template file'
+    required: false
+    default: 'default'
+  openai_model:
+    description: 'OpenAI model to use (gpt-4o, gpt-4, gpt-3.5-turbo)'
+    required: false
+    default: 'gpt-4o'
+  max_iterations:
+    description: 'Maximum refinement iterations'
+    required: false
+    default: '10'
+  completeness_threshold:
+    description: 'Quality score threshold for completion (0-100)'
+    required: false
+    default: '90'
+  timeout_minutes:
+    description: 'Maximum processing time in minutes'
+    required: false
+    default: '30'
+  create_pull_request:
+    description: 'Create a pull request with generated documentation'
+    required: false
+    default: 'false'
+  pr_title:
+    description: 'Title for the pull request'
+    required: false
+    default: '📚 Update API Documentation'
+  pr_branch_name:
+    description: 'Name for the PR branch (uses auto-generated name if not provided)'
+    required: false
+    default: 'docs/update-api-docs'
+
+outputs:
+  documentation_path:
+    description: 'Path to generated documentation directory'
+    value: ${{ steps.generate.outputs.output_path }}
+  files_generated:
+    description: 'Number of markdown files generated'
+    value: ${{ steps.generate.outputs.files_count }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r ${{ github.action_path }}/requirements.txt
+
+    - name: Prepare directories and template
+      shell: bash
+      run: |
+        # Create output directory
+        mkdir -p "${{ inputs.output_path }}"
+
+        # Set up template
+        if [[ "${{ inputs.template_path }}" == "default" ]]; then
+          mkdir -p templates
+          cp "${{ github.action_path }}/samples/productAPI.template.md" templates/
+          TEMPLATE_PATH="./templates/productAPI.template.md"
+        else
+          TEMPLATE_PATH="${{ inputs.template_path }}"
+        fi
+        echo "TEMPLATE_PATH=$TEMPLATE_PATH" >> $GITHUB_ENV
+
+        # Verify input directory exists
+        if [[ ! -d "${{ inputs.yaml_input_path }}" ]]; then
+          echo "❌ Input directory not found: ${{ inputs.yaml_input_path }}"
+          echo "Please ensure YAML files are in the specified directory"
+          exit 1
+        fi
+
+        # Count YAML files
+        YAML_COUNT=$(find "${{ inputs.yaml_input_path }}" -name "*.yaml" -o -name "*.yml" | wc -l)
+        echo "📁 Found $YAML_COUNT YAML file(s) to process"
+
+        if [[ $YAML_COUNT -eq 0 ]]; then
+          echo "⚠️  No YAML files found in ${{ inputs.yaml_input_path }}"
+          echo "Please ensure the directory contains .yaml or .yml files"
+          exit 1
+        fi
+
+    - name: Generate Documentation
+      id: generate
+      shell: bash
+      env:
+        OPENAI_API_KEY: ${{ inputs.openai_api_key }}
+        OPENAI_MODEL: ${{ inputs.openai_model }}
+        YAML_INPUT_PATH: ${{ inputs.yaml_input_path }}
+        MARKDOWN_OUTPUT_PATH: ${{ inputs.output_path }}
+        TEMPLATE_PATH: ${{ env.TEMPLATE_PATH }}
+        MAX_ITERATIONS: ${{ inputs.max_iterations }}
+        COMPLETENESS_THRESHOLD: ${{ inputs.completeness_threshold }}
+        TIMEOUT_MINUTES: ${{ inputs.timeout_minutes }}
+      run: |
+        echo "🚀 Starting documentation generation..."
+        echo "📁 Input: ${{ inputs.yaml_input_path }}"
+        echo "📄 Output: ${{ inputs.output_path }}"
+        echo "🎨 Template: $TEMPLATE_PATH"
+        echo "🤖 AI Model: ${{ inputs.openai_model }}"
+
+        # Run the documentation generator
+        python "${{ github.action_path }}/src/doc_generator_main.py"
+
+        # Count generated files
+        FILES_COUNT=$(find "${{ inputs.output_path }}" -name "*.md" | wc -l)
+        echo "files_count=$FILES_COUNT" >> $GITHUB_OUTPUT
+        echo "output_path=${{ inputs.output_path }}" >> $GITHUB_OUTPUT
+
+        echo "✅ Generated $FILES_COUNT markdown file(s)"
+
+    - name: Create Pull Request with Generated Documentation
+      if: inputs.create_pull_request == 'true'
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ github.token }}
+        commit-message: '📚 Generate API documentation from YAML specifications'
+        title: ${{ inputs.pr_title }}
+        body: |
+          ## 🤖 Auto-generated Documentation Update
+
+          This pull request contains automatically generated documentation from YAML specifications.
+
+          ### 📊 Generation Summary
+          - **Input Directory:** `${{ inputs.yaml_input_path }}`
+          - **Output Directory:** `${{ inputs.output_path }}`
+          - **AI Model Used:** ${{ inputs.openai_model }}
+          - **Files Generated:** ${{ steps.generate.outputs.files_count }}
+
+          ### 🔄 Process Details
+          - **Max Iterations:** ${{ inputs.max_iterations }}
+          - **Quality Threshold:** ${{ inputs.completeness_threshold }}%
+          - **Processing Time Limit:** ${{ inputs.timeout_minutes }} minutes
+
+          ---
+          🤖 This PR was created automatically by the YAML to Markdown Documentation Generator.
+
+          Please review the generated documentation before merging.
+        branch: ${{ inputs.pr_branch_name }}
+        branch-suffix: timestamp
+        delete-branch: true
+        add-paths: |
+          ${{ inputs.output_path }}/**
+        assignees: ${{ github.actor }}
+
+    - name: Summary
+      shell: bash
+      run: |
+        FILES_COUNT=$(find "${{ inputs.output_path }}" -name "*.md" | wc -l)
+
+        echo "## 📚 Documentation Generation Complete!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **Input Directory:** \`${{ inputs.yaml_input_path }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Output Directory:** \`${{ inputs.output_path }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Files Generated:** $FILES_COUNT" >> $GITHUB_STEP_SUMMARY
+        echo "- **AI Model Used:** ${{ inputs.openai_model }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Template:** ${{ env.TEMPLATE_PATH }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [ "${{ inputs.create_pull_request }}" == "true" ]; then
+          echo "### 🌿 Pull Request Created" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** Auto-generated with timestamp" >> $GITHUB_STEP_SUMMARY
+          echo "- **Assignee:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status:** Ready for review" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "### Generated Files:" >> $GITHUB_STEP_SUMMARY
+          if [[ $FILES_COUNT -gt 0 ]]; then
+            find "${{ inputs.output_path }}" -name "*.md" | while read file; do
+              echo "- \`$(basename "$file")\`" >> $GITHUB_STEP_SUMMARY
+            done
+          fi
+        fi

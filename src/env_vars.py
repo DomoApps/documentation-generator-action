@@ -7,33 +7,29 @@ from log import Log
 
 class EnvVars:
     def __init__(self):
-        self.owner = os.getenv('REPO_OWNER')
-        self.repo = os.getenv('REPO_NAME')
-        self.pull_number = os.getenv('PULL_NUMBER')
-        
-        self.token = os.getenv('GITHUB_TOKEN') 
+        # Core configuration
+        self.openai_api_key = os.getenv('OPENAI_API_KEY')
+        self.openai_model = os.getenv('OPENAI_MODEL', 'gpt-4o')
 
-        self.base_ref = os.getenv('GITHUB_BASE_REF') 
-        self.head_ref = os.getenv('GITHUB_HEAD_REF') 
+        # Input/Output paths
+        self.yaml_input_path = os.getenv('YAML_INPUT_PATH', './input')
+        self.markdown_output_path = os.getenv('MARKDOWN_OUTPUT_PATH', './output')
+        self.template_path = os.getenv('TEMPLATE_PATH', './templates/productAPI.template.md')
 
-        self.chat_gpt_token = os.getenv('CHATGPT_KEY') 
-        self.chat_gpt_model = os.getenv('CHATGPT_MODEL', 'gpt-4o') 
-
-        self.target_extensions = os.getenv('TARGET_EXTENSIONS', 'py,js')
-        self.target_extensions = [lang.strip() for lang in self.target_extensions.split(",")]
-
-        self.focus_areas = os.getenv('FOCUS_AREAS')
+        # Process configuration
+        self.max_iterations = int(os.getenv('MAX_ITERATIONS', '10'))
+        self.completeness_threshold = int(os.getenv('COMPLETENESS_THRESHOLD', '90'))
+        self.timeout_minutes = int(os.getenv('TIMEOUT_MINUTES', '30'))
 
         self.env_vars = {
-            "owner" : self.owner,
-            "repo" : self.repo,
-            "token" : self.token,
-            "base_ref" : self.base_ref,
-            "pull_number" : self.pull_number,
-            "chat_gpt_token" : self.chat_gpt_token,
-            "chat_gpt_model" : self.chat_gpt_model,
-            "target_extensions" : self.target_extensions,
-            "focus_areas" : self.focus_areas,
+            "openai_api_key": self.openai_api_key,
+            "openai_model": self.openai_model,
+            "yaml_input_path": self.yaml_input_path,
+            "markdown_output_path": self.markdown_output_path,
+            "template_path": self.template_path,
+            "max_iterations": self.max_iterations,
+            "completeness_threshold": self.completeness_threshold,
+            "timeout_minutes": self.timeout_minutes,
         }
 
     def check_vars(self):

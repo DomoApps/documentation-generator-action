@@ -1,0 +1,81 @@
+# Simplified single-repository workflow
+name: Generate Documentation from YAML
+
+on:
+  push:
+    paths:
+      - 'yaml/**/*.yaml'
+      - 'yaml/**/*.yml'
+  pull_request:
+    paths:
+      - 'yaml/**/*.yaml'
+      - 'yaml/**/*.yml'
+  workflow_dispatch: # Manual trigger
+
+jobs:
+  generate_docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Detect changed YAML files
+        id: changed-files
+        uses: tj-actions/changed-files@v40
+        with:
+          files: |
+            yaml/**/*.yaml
+            yaml/**/*.yml
+
+      - name: Generate Documentation
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: 'gpt-4o'
+          YAML_INPUT_PATH: './yaml'
+          MARKDOWN_OUTPUT_PATH: './docs'
+          TEMPLATE_PATH: './templates/api-template.md'
+          CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
+        run: |
+          echo "🔄 Processing YAML files..."
+          if [[ "${{ steps.changed-files.outputs.any_changed }}" == "true" ]]; then
+            echo "Changed files: ${{ steps.changed-files.outputs.all_changed_files }}"
+            python src/doc_generator_main.py
+          else
+            echo "No YAML files changed, processing all files..."
+            python src/doc_generator_main.py --all
+          fi
+
+      - name: Create Pull Request
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: '📚 Update documentation from YAML changes'
+          title: '📚 Auto-generated Documentation Update'
+          body: |
+            ## 🤖 Documentation Update
+
+            Updated documentation based on YAML file changes:
+
+            ${{ steps.changed-files.outputs.all_changed_files && '### Changed Files:' || '### All Files Processed' }}
+            ${{ steps.changed-files.outputs.all_changed_files }}
+
+            Generated at: ${{ github.run_id }}
+          branch: docs/auto-update
+          delete-branch: true
+          base: main
+          add-paths: |
+            docs/**

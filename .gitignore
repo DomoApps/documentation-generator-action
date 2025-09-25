@@ -66,3 +66,6 @@ htmlcov/
 
 # Ignore test output
 output.txt
+
+# Environment files
+.env
