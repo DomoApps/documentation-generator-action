@@ -58,6 +58,12 @@ jobs:
 1. **OpenAI API Key**: Add `OPENAI_API_KEY` to your repository secrets
 2. **YAML Files**: Place your YAML/YML files in the designated input directory
 3. **GitHub Actions**: Ensure Actions are enabled in your repository
+4. **Repository Access**: Ensure your repository has access to the `DomoApps` organization
+
+## ⚠️ Important Notes
+
+- **Case Sensitive**: Use exact case `DomoApps/documentation-generator-action` (not `domoapps`)
+- **Branch Reference**: Use `@main` branch for latest version
 
 ## ⚙️ Configuration Options
 
@@ -299,6 +305,25 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./docs-site
 ```
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+| Issue | Solution |
+|-------|----------|
+| `Unable to resolve action` | Ensure exact case: `DomoApps/documentation-generator-action@main` |
+| `Permission denied` | Verify repository access to DomoApps organization |
+| `OPENAI_API_KEY not found` | Add API key to repository secrets |
+| `No YAML files found` | Check `yaml_input_path` points to directory with .yaml/.yml files |
+| `Template not found` | Use `template_path: 'default'` or provide valid custom template path |
+
+### Debug Steps
+
+1. **Check Action Logs**: View detailed logs in GitHub Actions tab
+2. **Verify Inputs**: Ensure all required inputs are provided
+3. **Test Locally**: Use the local testing commands from the repository
+4. **Check Permissions**: Verify workflow has necessary permissions
 
 ## 🤝 Contributing
 

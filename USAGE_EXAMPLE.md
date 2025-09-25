@@ -4,6 +4,7 @@ This example shows how to use the `DomoApps/documentation-generator-action` from
 
 ## Repository Structure (Your API Repo)
 
+
 ```text
 your-api-repository/
 ├── .github/workflows/
@@ -96,20 +97,25 @@ jobs:
             docs/**
 ```
 
+
 ## Required Setup in Your API Repository
 
 ### 1. Add Repository Secret
+
 Go to your repository → Settings → Secrets and variables → Actions
 
 Add: `OPENAI_API_KEY` with your OpenAI API key
 
 ### 2. Directory Structure
+
 Create these directories in your repository:
+
 ```bash
 mkdir -p yaml docs
 ```
 
 ### 3. Sample YAML File
+
 Create `yaml/sample-api.yaml`:
 ```yaml
 openapi: 3.0.0
@@ -151,12 +157,19 @@ If you want to use your own template instead of the default:
           template_path: './templates/my-custom-template.md'
 ```
 
+
 ## Expected Behavior
 
 1. **On YAML file changes**: Action generates new documentation
 2. **Generated files**: Placed in `./docs/` directory
 3. **Automatic commit**: Documentation is committed back to the repo
 4. **File naming**: YAML files become markdown (e.g., `user-api.yaml` → `user-api.md`)
+
+## ⚠️ Common Issues
+
+- **Case Sensitivity**: Must use `DomoApps/documentation-generator-action` (not `domoapps`)
+- **Repository Access**: Ensure your repo can access the DomoApps organization
+- **API Key**: Verify `OPENAI_API_KEY` is set in repository secrets
 
 ## Testing
 
