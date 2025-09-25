@@ -3,10 +3,14 @@
 # Author: Jonathan Tiritilli
 
 import os
+from pathlib import Path
 from log import Log
 
 class EnvVars:
     def __init__(self):
+        # Load .env file if it exists (for local development)
+        self._load_env_file()
+
         # Core configuration
         self.openai_api_key = os.getenv('OPENAI_API_KEY')
         self.openai_model = os.getenv('OPENAI_MODEL', 'gpt-4o')
@@ -39,3 +43,15 @@ class EnvVars:
             raise ValueError(f"The following environment variables are missing or empty: {missing_vars_str}")
         else:
             Log.print_green("All required environment variables are set.")
+
+    def _load_env_file(self):
+        """Load environment variables from .env file if it exists"""
+        env_file = Path(__file__).parent.parent / '.env'
+        if env_file.exists():
+            with open(env_file, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        key, value = line.split('=', 1)
+                        if key not in os.environ:
+                            os.environ[key] = value
