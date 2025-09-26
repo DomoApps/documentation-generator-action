@@ -14,6 +14,7 @@ A powerful GitHub Action that leverages AI to automatically generate professiona
 - 📚 **Batch Processing**: Handle multiple YAML files simultaneously
 - 🎯 **Smart Change Detection**: Only process changed YAML files for efficiency
 - 🔀 **Automatic PR Creation**: Built-in pull request creation with generated docs
+- 🧠 **Smart PR Titles**: AI-generated descriptive titles based on content changes
 - ⚙️ **Highly Configurable**: Customize models, iterations, and output paths
 
 ## 🎯 Quick Start
@@ -140,9 +141,25 @@ Generate documentation and automatically create pull requests:
     yaml_input_path: "./yaml"
     output_path: "./docs"
     create_pull_request: "true"     # 🔀 Auto-create PR
-    pr_title: "📚 Updated API Documentation"
+    pr_title: "📚 Updated API Documentation"  # Fallback title
     pr_branch_name: "docs/api-update"
 ```
+
+## 🧠 Smart PR Titles
+
+When `process_changed_only: "true"` is enabled, the action automatically generates intelligent PR titles based on the actual content changes:
+
+**Examples of AI-generated titles:**
+- `📚 Add FileSet management endpoints`
+- `🔄 Update AI text summarization API`
+- `✨ New user authentication methods`
+- `🐛 Fix payment processing parameters`
+
+**Benefits:**
+- **Context-Aware**: Understands what actually changed in your APIs
+- **Professional**: Uses consistent emoji and formatting conventions
+- **Concise**: Stays under 60 characters for clean PR lists
+- **Fallback Safe**: Uses your custom `pr_title` if AI generation fails
 
 ## 🎨 Custom Templates
 

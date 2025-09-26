@@ -45,6 +45,10 @@ def main():
     # Ensure output directory exists
     os.makedirs(env_vars.markdown_output_path, exist_ok=True)
 
+    # Collect YAML summaries for PR title generation
+    yaml_summaries = {}
+    processed_files = []
+
     # Process each YAML file
     for yaml_file in yaml_files:
         Log.print_green(f"Processing: {yaml_file}")
@@ -60,6 +64,15 @@ def main():
             Log.print_red(f"Failed to load YAML file: {yaml_file}")
             continue
 
+        # Extract basic info for PR title generation
+        try:
+            import yaml
+            yaml_data = yaml.safe_load(yaml_content)
+            yaml_summaries[yaml_file] = yaml_data
+        except Exception as e:
+            Log.print_red(f"Failed to parse YAML for summary: {e}")
+            yaml_summaries[yaml_file] = {"info": {"title": "API"}}
+
         # Generate documentation
         markdown_content = doc_generator.process_yaml_to_markdown(
             yaml_content=yaml_content,
@@ -73,6 +86,18 @@ def main():
         save_markdown_file(output_file, markdown_content)
 
         Log.print_green(f"Generated documentation: {output_file}")
+        processed_files.append(yaml_file)
+
+    # Generate AI-powered PR title if files were processed
+    if processed_files and env_vars.process_changed_only:
+        Log.print_green("Generating smart PR title...")
+        pr_title = doc_generator.generate_pr_title(processed_files, yaml_summaries)
+
+        # Save PR title to environment variable for GitHub Actions
+        import os
+        with open(os.environ.get('GITHUB_ENV', '/dev/null'), 'a') as f:
+            f.write(f"GENERATED_PR_TITLE={pr_title}\n")
+        Log.print_green(f"Generated PR title: {pr_title}")
 
     Log.print_green("Documentation generation complete")
 

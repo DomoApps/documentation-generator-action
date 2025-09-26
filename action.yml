@@ -201,7 +201,7 @@ runs:
       with:
         token: ${{ github.token }}
         commit-message: '📚 Generate API documentation from YAML specifications'
-        title: ${{ inputs.pr_title }}
+        title: ${{ env.GENERATED_PR_TITLE || inputs.pr_title }}
         body: |
           ## 🤖 Auto-generated Documentation Update
 
@@ -212,11 +212,13 @@ runs:
           - **Output Directory:** `${{ inputs.output_path }}`
           - **AI Model Used:** ${{ inputs.openai_model }}
           - **Files Generated:** ${{ steps.generate.outputs.files_count }}
+          - **Smart Title:** AI-generated based on content analysis
 
           ### 🔄 Process Details
           - **Max Iterations:** ${{ inputs.max_iterations }}
           - **Quality Threshold:** ${{ inputs.completeness_threshold }}%
           - **Processing Time Limit:** ${{ inputs.timeout_minutes }} minutes
+          - **Change Detection:** ${{ inputs.process_changed_only == 'true' && '✅ Enabled' || '❌ Disabled' }}
 
           ---
           🤖 This PR was created automatically by the YAML to Markdown Documentation Generator.
