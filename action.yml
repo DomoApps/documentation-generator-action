@@ -103,7 +103,8 @@ runs:
           echo "Base reference: $BASE_REF"
 
           # Get changed YAML files
-          CHANGED_FILES=$(git diff --name-only --diff-filter=ACMRT "$BASE_REF"...HEAD | grep -E '\.(yaml|yml)$' | grep "^${{ inputs.yaml_input_path }}/" || true)
+          YAML_DIR=$(echo "${{ inputs.yaml_input_path }}" | sed 's|^\./||')  # Remove leading ./
+          CHANGED_FILES=$(git diff --name-only --diff-filter=ACMRT "$BASE_REF"...HEAD | grep -E '\.(yaml|yml)$' | grep "^${YAML_DIR}/" || true)
 
           if [[ -z "$CHANGED_FILES" ]]; then
             echo "⚠️ No YAML files changed in ${{ inputs.yaml_input_path }}"
