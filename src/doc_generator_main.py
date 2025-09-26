@@ -94,7 +94,6 @@ def main():
         pr_title = doc_generator.generate_pr_title(processed_files, yaml_summaries)
 
         # Save PR title to environment variable for GitHub Actions
-        import os
         with open(os.environ.get('GITHUB_ENV', '/dev/null'), 'a') as f:
             f.write(f"GENERATED_PR_TITLE={pr_title}\n")
         Log.print_green(f"Generated PR title: {pr_title}")

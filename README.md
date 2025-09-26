@@ -150,12 +150,14 @@ Generate documentation and automatically create pull requests:
 When `process_changed_only: "true"` is enabled, the action automatically generates intelligent PR titles based on the actual content changes:
 
 **Examples of AI-generated titles:**
+
 - `📚 Add FileSet management endpoints`
 - `🔄 Update AI text summarization API`
 - `✨ New user authentication methods`
 - `🐛 Fix payment processing parameters`
 
 **Benefits:**
+
 - **Context-Aware**: Understands what actually changed in your APIs
 - **Professional**: Uses consistent emoji and formatting conventions
 - **Concise**: Stays under 60 characters for clean PR lists
