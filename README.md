@@ -12,28 +12,48 @@ A powerful GitHub Action that leverages AI to automatically generate professiona
 - 📊 **Quality Control**: Configurable completeness thresholds and validation
 - 🚀 **GitHub Actions Ready**: Both composite action and reusable workflow support
 - 📚 **Batch Processing**: Handle multiple YAML files simultaneously
+- 🎯 **Smart Change Detection**: Only process changed YAML files for efficiency
+- 🔀 **Automatic PR Creation**: Built-in pull request creation with generated docs
 - ⚙️ **Highly Configurable**: Customize models, iterations, and output paths
 
 ## 🎯 Quick Start
 
-### Option 1: Composite Action (Recommended)
+### Basic Setup
 
 ```yaml
-name: Generate Documentation
-on: [push, pull_request]
+name: Generate API Documentation
+
+on:
+  push:
+    paths:
+      - "yaml/**/*.yaml"
+      - "yaml/**/*.yml"
+  pull_request:
+    paths:
+      - "yaml/**/*.yaml"
+      - "yaml/**/*.yml"
 
 jobs:
-  docs:
+  generate_docs:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Required for change detection
 
       - name: Generate API Documentation
         uses: DomoApps/documentation-generator-action@main
         with:
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
-          yaml_input_path: './api-specs'
-          output_path: './docs'
+          yaml_input_path: "./yaml"
+          output_path: "./docs"
+          process_changed_only: "true"    # Only process changed files
+          create_pull_request: "true"     # Auto-create PR with results
 ```
 
 ### Option 2: Reusable Workflow
@@ -77,6 +97,52 @@ jobs:
 | `max_iterations`         | Maximum refinement iterations                | `10`      |          |
 | `completeness_threshold` | Quality score threshold (0-100)              | `90`      |          |
 | `timeout_minutes`        | Maximum processing time                      | `30`      |          |
+| `process_changed_only`   | Only process changed YAML files             | `false`   |          |
+| `base_ref`               | Base reference for change detection          | `main`    |          |
+| `create_pull_request`    | Create PR with generated documentation      | `false`   |          |
+| `pr_title`               | Title for the pull request                   | `📚 Update API Documentation` |          |
+| `pr_branch_name`         | Name for the PR branch                       | `docs/update-api-docs` |          |
+
+## 🎯 Smart Change Detection
+
+The action now includes built-in change detection that automatically identifies which YAML files have been modified:
+
+```yaml
+- name: Generate API Documentation
+  uses: DomoApps/documentation-generator-action@main
+  with:
+    openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+    yaml_input_path: "./yaml"
+    output_path: "./docs"
+    process_changed_only: "true"  # 🎯 Only process changed files
+```
+
+**Benefits:**
+
+- ⚡ **Faster Processing**: Only regenerates docs for changed files
+- 💰 **Cost Effective**: Reduces OpenAI API calls
+- 🔄 **Efficient CI/CD**: Shorter pipeline execution times
+
+**Requirements:**
+
+- Set `fetch-depth: 0` in checkout action for git history
+- Works with push events, pull requests, and manual triggers
+
+## 🔀 Automatic Pull Request Creation
+
+Generate documentation and automatically create pull requests:
+
+```yaml
+- name: Generate API Documentation
+  uses: DomoApps/documentation-generator-action@main
+  with:
+    openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+    yaml_input_path: "./yaml"
+    output_path: "./docs"
+    create_pull_request: "true"     # 🔀 Auto-create PR
+    pr_title: "📚 Updated API Documentation"
+    pr_branch_name: "docs/api-update"
+```
 
 ## 🎨 Custom Templates
 

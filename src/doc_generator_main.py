@@ -28,10 +28,18 @@ def main():
         Log.print_red("Failed to load template file")
         return
 
-    # Process all YAML files in input directory
-    yaml_files = find_yaml_files(env_vars.yaml_input_path)
+    # Determine which YAML files to process
+    if env_vars.process_changed_only and env_vars.changed_files:
+        Log.print_green("Processing only changed files:")
+        yaml_files = [f for f in env_vars.changed_files if f.endswith(('.yaml', '.yml'))]
+        for file in yaml_files:
+            Log.print_green(f"  - {file}")
+    else:
+        # Process all YAML files in input directory
+        yaml_files = find_yaml_files(env_vars.yaml_input_path)
+
     if not yaml_files:
-        Log.print_red("No YAML files found in input directory")
+        Log.print_red("No YAML files found to process")
         return
 
     # Ensure output directory exists

@@ -25,6 +25,10 @@ class EnvVars:
         self.completeness_threshold = int(os.getenv('COMPLETENESS_THRESHOLD', '90'))
         self.timeout_minutes = int(os.getenv('TIMEOUT_MINUTES', '30'))
 
+        # Changed files processing
+        self.process_changed_only = os.getenv('PROCESS_CHANGED_ONLY', 'false').lower() == 'true'
+        self.changed_files = os.getenv('CHANGED_FILES', '').strip().split('\n') if os.getenv('CHANGED_FILES') else []
+
         self.env_vars = {
             "openai_api_key": self.openai_api_key,
             "openai_model": self.openai_model,

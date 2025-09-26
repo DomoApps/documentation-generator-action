@@ -41,6 +41,14 @@ inputs:
     description: 'Maximum processing time in minutes'
     required: false
     default: '30'
+  process_changed_only:
+    description: 'Only process YAML files that have changed (requires git history)'
+    required: false
+    default: 'false'
+  base_ref:
+    description: 'Base reference for change detection (default: main branch or PR base)'
+    required: false
+    default: ''
   create_pull_request:
     description: 'Create a pull request with generated documentation'
     required: false
@@ -76,6 +84,48 @@ runs:
         python -m pip install --upgrade pip
         pip install -r ${{ github.action_path }}/requirements.txt
 
+    - name: Detect changed YAML files
+      id: changed-yaml
+      shell: bash
+      run: |
+        if [[ "${{ inputs.process_changed_only }}" == "true" ]]; then
+          echo "🔍 Detecting changed YAML files..."
+
+          # Determine base reference
+          if [[ -n "${{ inputs.base_ref }}" ]]; then
+            BASE_REF="${{ inputs.base_ref }}"
+          elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BASE_REF="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE_REF="origin/main"
+          fi
+
+          echo "Base reference: $BASE_REF"
+
+          # Get changed YAML files
+          CHANGED_FILES=$(git diff --name-only --diff-filter=ACMRT "$BASE_REF"...HEAD | grep -E '\.(yaml|yml)$' | grep "^${{ inputs.yaml_input_path }}/" || true)
+
+          if [[ -z "$CHANGED_FILES" ]]; then
+            echo "⚠️ No YAML files changed in ${{ inputs.yaml_input_path }}"
+            echo "changed_files=" >> $GITHUB_OUTPUT
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Changed YAML files:"
+          echo "$CHANGED_FILES" | sed 's/^/  - /'
+
+          # Save to output
+          echo "changed_files<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGED_FILES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+        else
+          echo "🗂️ Processing all YAML files in directory"
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+          echo "changed_files=" >> $GITHUB_OUTPUT
+        fi
+
     - name: Prepare directories and template
       shell: bash
       run: |
@@ -110,6 +160,7 @@ runs:
         fi
 
     - name: Generate Documentation
+      if: steps.changed-yaml.outputs.has_changes == 'true'
       id: generate
       shell: bash
       env:
@@ -121,6 +172,8 @@ runs:
         MAX_ITERATIONS: ${{ inputs.max_iterations }}
         COMPLETENESS_THRESHOLD: ${{ inputs.completeness_threshold }}
         TIMEOUT_MINUTES: ${{ inputs.timeout_minutes }}
+        PROCESS_CHANGED_ONLY: ${{ inputs.process_changed_only }}
+        CHANGED_FILES: ${{ steps.changed-yaml.outputs.changed_files }}
       run: |
         echo "🚀 Starting documentation generation..."
         echo "📁 Input: ${{ inputs.yaml_input_path }}"
@@ -139,7 +192,7 @@ runs:
         echo "✅ Generated $FILES_COUNT markdown file(s)"
 
     - name: Create Pull Request with Generated Documentation
-      if: inputs.create_pull_request == 'true'
+      if: inputs.create_pull_request == 'true' && steps.changed-yaml.outputs.has_changes == 'true'
       uses: peter-evans/create-pull-request@v5
       with:
         token: ${{ github.token }}
