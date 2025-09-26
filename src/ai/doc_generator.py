@@ -270,6 +270,7 @@ class DocGenerator(AiBot):
 
     def _is_valid_json(self, text: str) -> bool:
         """Check if string is valid JSON"""
+        import json as json_lib
         try:
             json_lib.loads(text)
             return True
