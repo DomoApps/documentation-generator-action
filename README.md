@@ -27,12 +27,12 @@ name: Generate API Documentation
 on:
   push:
     paths:
-      - "yaml/**/*.yaml"
-      - "yaml/**/*.yml"
+      - 'yaml/**/*.yaml'
+      - 'yaml/**/*.yml'
   pull_request:
     paths:
-      - "yaml/**/*.yaml"
-      - "yaml/**/*.yml"
+      - 'yaml/**/*.yaml'
+      - 'yaml/**/*.yml'
 
 jobs:
   generate_docs:
@@ -51,10 +51,10 @@ jobs:
         uses: DomoApps/documentation-generator-action@main
         with:
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
-          yaml_input_path: "./yaml"
-          output_path: "./docs"
-          process_changed_only: "true"    # Only process changed files
-          create_pull_request: "true"     # Auto-create PR with results
+          yaml_input_path: './yaml'
+          output_path: './docs'
+          process_changed_only: 'true' # Only process changed files
+          create_pull_request: 'true' # Auto-create PR with results
 ```
 
 ### Option 2: Reusable Workflow
@@ -88,21 +88,21 @@ jobs:
 
 ## ⚙️ Configuration Options
 
-| Input                    | Description                                  | Default   | Required |
-| ------------------------ | -------------------------------------------- | --------- | -------- |
-| `openai_api_key`         | OpenAI API key for AI processing             |           | ✅       |
-| `yaml_input_path`        | Path to directory containing YAML files      | `./yaml`  |          |
-| `output_path`            | Output directory for generated documentation | `./docs`  |          |
-| `template_path`          | Custom template file path                    | `default` |          |
-| `openai_model`           | AI model to use                              | `gpt-4o`  |          |
-| `max_iterations`         | Maximum refinement iterations                | `10`      |          |
-| `completeness_threshold` | Quality score threshold (0-100)              | `90`      |          |
-| `timeout_minutes`        | Maximum processing time                      | `30`      |          |
-| `process_changed_only`   | Only process changed YAML files             | `false`   |          |
-| `base_ref`               | Base reference for change detection          | `main`    |          |
-| `create_pull_request`    | Create PR with generated documentation      | `false`   |          |
+| Input                    | Description                                  | Default                       | Required |
+| ------------------------ | -------------------------------------------- | ----------------------------- | -------- |
+| `openai_api_key`         | OpenAI API key for AI processing             |                               | ✅       |
+| `yaml_input_path`        | Path to directory containing YAML files      | `./yaml`                      |          |
+| `output_path`            | Output directory for generated documentation | `./docs`                      |          |
+| `template_path`          | Custom template file path                    | `default`                     |          |
+| `openai_model`           | AI model to use                              | `gpt-4o`                      |          |
+| `max_iterations`         | Maximum refinement iterations                | `10`                          |          |
+| `completeness_threshold` | Quality score threshold (0-100)              | `90`                          |          |
+| `timeout_minutes`        | Maximum processing time                      | `30`                          |          |
+| `process_changed_only`   | Only process changed YAML files              | `false`                       |          |
+| `base_ref`               | Base reference for change detection          | `main`                        |          |
+| `create_pull_request`    | Create PR with generated documentation       | `false`                       |          |
 | `pr_title`               | Title for the pull request                   | `📚 Update API Documentation` |          |
-| `pr_branch_name`         | Name for the PR branch                       | `docs/update-api-docs` |          |
+| `pr_branch_name`         | Name for the PR branch                       | `docs/update-api-docs`        |          |
 
 ## 🎯 Smart Change Detection
 
@@ -113,9 +113,9 @@ The action now includes built-in change detection that automatically identifies 
   uses: DomoApps/documentation-generator-action@main
   with:
     openai_api_key: ${{ secrets.OPENAI_API_KEY }}
-    yaml_input_path: "./yaml"
-    output_path: "./docs"
-    process_changed_only: "true"  # 🎯 Only process changed files
+    yaml_input_path: './yaml'
+    output_path: './docs'
+    process_changed_only: 'true' # 🎯 Only process changed files
 ```
 
 **Benefits:**
@@ -138,11 +138,11 @@ Generate documentation and automatically create pull requests:
   uses: DomoApps/documentation-generator-action@main
   with:
     openai_api_key: ${{ secrets.OPENAI_API_KEY }}
-    yaml_input_path: "./yaml"
-    output_path: "./docs"
-    create_pull_request: "true"     # 🔀 Auto-create PR
-    pr_title: "📚 Updated API Documentation"  # Fallback title
-    pr_branch_name: "docs/api-update"
+    yaml_input_path: './yaml'
+    output_path: './docs'
+    create_pull_request: 'true' # 🔀 Auto-create PR
+    pr_title: '📚 Updated API Documentation' # Fallback title
+    pr_branch_name: 'docs/api-update'
 ```
 
 ## 🧠 Smart PR Titles
@@ -168,21 +168,26 @@ When `process_changed_only: "true"` is enabled, the action automatically generat
 Create your own Handlebars template for customized output:
 
 ```handlebars
-# {{API_NAME}}
+#
+{{API_NAME}}
 
-> {{API_DESCRIPTION}}
+>
+{{API_DESCRIPTION}}
 
 ## Endpoints
 
 {{#each ENDPOINTS}}
-### {{METHOD}} {{PATH}}
+  ###
+  {{METHOD}}
+  {{PATH}}
 
-{{DESCRIPTION}}
+  {{DESCRIPTION}}
 
-**Parameters:**
-{{#each PARAMETERS}}
-- `{{name}}` ({{type}}) - {{description}}
-{{/each}}
+  **Parameters:**
+  {{#each PARAMETERS}}
+    - `{{name}}` ({{type}}) -
+    {{description}}
+  {{/each}}
 {{/each}}
 ```
 
@@ -263,7 +268,7 @@ The action uses Handlebars-style templates with placeholders like:
 - `{{#each PARAMETERS}}` - Parameter loops
 - `{{#if CONDITION}}` - Conditional sections
 
-See `samples/productAPI.template.md` for the complete template structure.
+See `templates/product-api.template.md` for the complete template structure.
 
 ## Outputs
 
@@ -313,7 +318,7 @@ DomoApps/documentation-generator-action/
 export OPENAI_API_KEY="your-api-key"
 export YAML_INPUT_PATH="./samples"
 export MARKDOWN_OUTPUT_PATH="./output"
-export TEMPLATE_PATH="./samples/productAPI.template.md"
+export TEMPLATE_PATH="./templates/product-api.template.md"
 
 # Run the generator
 python src/doc_generator_main.py
@@ -322,7 +327,7 @@ python src/doc_generator_main.py
 ### Sample Files Included
 
 - **Input**: `samples/filesets.yaml` - Comprehensive API specification
-- **Template**: `samples/productAPI.template.md` - Professional API documentation template
+- **Template**: `templates/product-api.template.md` - Professional API documentation template
 - **Expected Output**: Rich markdown with tables, code examples, and structured sections
 
 ## 🚀 Usage in Different Scenarios
@@ -395,13 +400,13 @@ jobs:
 
 ### Common Issues
 
-| Issue | Solution |
-|-------|----------|
-| `Unable to resolve action` | Ensure exact case: `DomoApps/documentation-generator-action@main` |
-| `Permission denied` | Verify repository access to DomoApps organization |
-| `OPENAI_API_KEY not found` | Add API key to repository secrets |
-| `No YAML files found` | Check `yaml_input_path` points to directory with .yaml/.yml files |
-| `Template not found` | Use `template_path: 'default'` or provide valid custom template path |
+| Issue                      | Solution                                                             |
+| -------------------------- | -------------------------------------------------------------------- |
+| `Unable to resolve action` | Ensure exact case: `DomoApps/documentation-generator-action@main`    |
+| `Permission denied`        | Verify repository access to DomoApps organization                    |
+| `OPENAI_API_KEY not found` | Add API key to repository secrets                                    |
+| `No YAML files found`      | Check `yaml_input_path` points to directory with .yaml/.yml files    |
+| `Template not found`       | Use `template_path: 'default'` or provide valid custom template path |
 
 ### Debug Steps
 
