@@ -6,28 +6,37 @@ import os
 from pathlib import Path
 from log import Log
 
+
 class EnvVars:
     def __init__(self):
         # Load .env file if it exists (for local development)
         self._load_env_file()
 
         # Core configuration
-        self.openai_api_key = os.getenv('OPENAI_API_KEY')
-        self.openai_model = os.getenv('OPENAI_MODEL', 'gpt-4o')
+        self.openai_api_key = os.getenv("OPENAI_API_KEY")
+        self.openai_model = os.getenv("OPENAI_MODEL", "gpt-4o")
 
         # Input/Output paths
-        self.yaml_input_path = os.getenv('YAML_INPUT_PATH', './input')
-        self.markdown_output_path = os.getenv('MARKDOWN_OUTPUT_PATH', './output')
-        self.template_path = os.getenv('TEMPLATE_PATH', './templates/productAPI.template.md')
+        self.yaml_input_path = os.getenv("YAML_INPUT_PATH", "./input")
+        self.markdown_output_path = os.getenv("MARKDOWN_OUTPUT_PATH", "./output")
+        self.template_path = os.getenv(
+            "TEMPLATE_PATH", "./templates/product-api.template.md"
+        )
 
         # Process configuration
-        self.max_iterations = int(os.getenv('MAX_ITERATIONS', '10'))
-        self.completeness_threshold = int(os.getenv('COMPLETENESS_THRESHOLD', '90'))
-        self.timeout_minutes = int(os.getenv('TIMEOUT_MINUTES', '30'))
+        self.max_iterations = int(os.getenv("MAX_ITERATIONS", "10"))
+        self.completeness_threshold = int(os.getenv("COMPLETENESS_THRESHOLD", "90"))
+        self.timeout_minutes = int(os.getenv("TIMEOUT_MINUTES", "30"))
 
         # Changed files processing
-        self.process_changed_only = os.getenv('PROCESS_CHANGED_ONLY', 'false').lower() == 'true'
-        self.changed_files = os.getenv('CHANGED_FILES', '').strip().split('\n') if os.getenv('CHANGED_FILES') else []
+        self.process_changed_only = (
+            os.getenv("PROCESS_CHANGED_ONLY", "false").lower() == "true"
+        )
+        self.changed_files = (
+            os.getenv("CHANGED_FILES", "").strip().split("\n")
+            if os.getenv("CHANGED_FILES")
+            else []
+        )
 
         self.env_vars = {
             "openai_api_key": self.openai_api_key,
@@ -44,18 +53,20 @@ class EnvVars:
         missing_vars = [var for var, value in self.env_vars.items() if not value]
         if missing_vars:
             missing_vars_str = ", ".join(missing_vars)
-            raise ValueError(f"The following environment variables are missing or empty: {missing_vars_str}")
+            raise ValueError(
+                f"The following environment variables are missing or empty: {missing_vars_str}"
+            )
         else:
             Log.print_green("All required environment variables are set.")
 
     def _load_env_file(self):
         """Load environment variables from .env file if it exists"""
-        env_file = Path(__file__).parent.parent / '.env'
+        env_file = Path(__file__).parent.parent / ".env"
         if env_file.exists():
-            with open(env_file, 'r') as f:
+            with open(env_file, "r") as f:
                 for line in f:
                     line = line.strip()
-                    if line and not line.startswith('#') and '=' in line:
-                        key, value = line.split('=', 1)
+                    if line and not line.startswith("#") and "=" in line:
+                        key, value = line.split("=", 1)
                         if key not in os.environ:
                             os.environ[key] = value

@@ -139,8 +139,8 @@ runs:
         # Set up template
         if [[ "${{ inputs.template_path }}" == "default" ]]; then
           mkdir -p templates
-          cp "${{ github.action_path }}/templates/productAPI.template.md" templates/
-          TEMPLATE_PATH="./templates/productAPI.template.md"
+          cp "${{ github.action_path }}/templates/product-api.template.md" templates/
+          TEMPLATE_PATH="./templates/product-api.template.md"
         else
           TEMPLATE_PATH="${{ inputs.template_path }}"
         fi
