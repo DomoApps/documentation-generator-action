@@ -73,13 +73,22 @@ def main():
             Log.print_red(f"Failed to parse YAML for summary: {e}")
             yaml_summaries[yaml_file] = {"info": {"title": "API"}}
 
-        # Generate documentation
-        markdown_content = doc_generator.process_yaml_to_markdown(
-            yaml_content=yaml_content,
-            template_content=template_content,
-            max_iterations=env_vars.max_iterations,
-            completeness_threshold=env_vars.completeness_threshold
-        )
+        # Generate documentation using NEW DETERMINISTIC approach
+        try:
+            markdown_content = doc_generator.process_openapi_to_markdown_deterministic(
+                yaml_path=yaml_file,
+                template_content=template_content
+            )
+        except Exception as e:
+            Log.print_red(f"Deterministic approach failed: {e}")
+            Log.print_red("Falling back to legacy iterative approach...")
+            # Fallback to old method if deterministic fails
+            markdown_content = doc_generator.process_yaml_to_markdown(
+                yaml_content=yaml_content,
+                template_content=template_content,
+                max_iterations=env_vars.max_iterations,
+                completeness_threshold=env_vars.completeness_threshold
+            )
 
         # Save output
         output_file = get_output_filename(yaml_file, env_vars.markdown_output_path)
@@ -123,10 +132,14 @@ def find_yaml_files(input_path: str) -> list:
         return []
 
     for ext in yaml_extensions:
-        yaml_files.extend(input_dir.glob(f"*{ext}"))
+        # Use **/* for recursive search (includes current dir)
         yaml_files.extend(input_dir.glob(f"**/*{ext}"))
 
-    return [str(f) for f in yaml_files]
+    # Remove duplicates by converting to set and back
+    yaml_files = list(set([str(f) for f in yaml_files]))
+
+    Log.print_green(f"Found {len(yaml_files)} YAML file(s): {yaml_files}")
+    return yaml_files
 
 def load_yaml_file(yaml_file: str) -> str:
     """Load YAML file content as string"""

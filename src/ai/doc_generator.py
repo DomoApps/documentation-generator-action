@@ -5,14 +5,211 @@
 import json
 import yaml
 from openai import OpenAI
-from ai.ai_bot import AiBot
+from .ai_bot import AiBot
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from log import Log
+from openapi.openapi_parser import OpenAPIParser, EndpointData
 
 class DocGenerator(AiBot):
     def __init__(self, client, model):
         self.__client = client
         self.__model = model
         self.current_iteration = 0
+
+    def process_openapi_to_markdown_deterministic(self, yaml_path: str, template_content: str) -> str:
+        """
+        NEW DETERMINISTIC APPROACH: Process OpenAPI spec path-by-path using schema-based parsing
+
+        This method:
+        1. Uses prance to resolve all $refs
+        2. Parses each endpoint deterministically
+        3. Extracts parameters directly from schemas
+        4. Generates examples from schema types
+        5. Uses AI only for polishing the documentation
+
+        Args:
+            yaml_path: Path to OpenAPI YAML file
+            template_content: Template for rendering documentation
+
+        Returns:
+            Complete markdown documentation
+        """
+        Log.print_green("=== Starting DETERMINISTIC OpenAPI processing ===")
+
+        # Parse OpenAPI spec deterministically
+        parser = OpenAPIParser(yaml_path)
+        api_info = parser.get_api_info()
+        endpoints = parser.parse_all_endpoints()
+
+        Log.print_green(f"Found {len(endpoints)} endpoints to document")
+
+        # Build documentation for each endpoint
+        endpoint_docs = []
+        for i, endpoint in enumerate(endpoints, 1):
+            Log.print_green(f"Processing endpoint {i}/{len(endpoints)}: {endpoint.method.upper()} {endpoint.path}")
+
+            # Generate documentation for this endpoint
+            doc = self._generate_endpoint_documentation(endpoint, template_content, parser)
+            endpoint_docs.append(doc)
+
+        # Combine all endpoint documentation
+        full_doc = self._combine_endpoint_docs(api_info, endpoint_docs)
+
+        Log.print_green("=== DETERMINISTIC processing complete ===")
+        return full_doc
+
+    def _generate_endpoint_documentation(self, endpoint: EndpointData, template: str, parser: OpenAPIParser) -> str:
+        """
+        Generate documentation for a single endpoint using structured data
+
+        AI's job is now much simpler: just polish the already-structured data
+        """
+        # Build parameter tables
+        path_params_table = self._build_parameter_table(endpoint.path_parameters)
+        query_params_table = self._build_parameter_table(endpoint.query_parameters)
+        request_body_table = self._build_parameter_table(endpoint.request_body_parameters)
+
+        # Format examples
+        request_example = parser.format_example_as_json(endpoint.request_body_example) if endpoint.request_body_example else None
+        response_example = parser.format_example_as_json(endpoint.success_response_example) if endpoint.success_response_example else None
+
+        # Build error responses section
+        error_responses = self._build_error_responses(endpoint.responses)
+
+        # Prepare structured data for the AI
+        structured_data = {
+            'API_NAME': endpoint.summary or 'API Endpoint',
+            'ENDPOINT_NAME': endpoint.summary or f"{endpoint.method.upper()} {endpoint.path}",
+            'HTTP_METHOD': endpoint.method.upper(),
+            'ENDPOINT_PATH': endpoint.path,
+            'API_DESCRIPTION': endpoint.description,
+            'OPERATION_ID': endpoint.operation_id,
+
+            # Parameter tables (already formatted as markdown)
+            'PATH_PARAMETERS_TABLE': path_params_table,
+            'QUERY_PARAMETERS_TABLE': query_params_table,
+            'REQUEST_BODY_TABLE': request_body_table,
+
+            # Request body schema description (important context!)
+            'REQUEST_BODY_DESCRIPTION': endpoint.request_body_description,
+
+            # Raw parameter lists (for custom formatting)
+            'PATH_PARAMETERS': json.dumps(endpoint.path_parameters, indent=2),
+            'QUERY_PARAMETERS': json.dumps(endpoint.query_parameters, indent=2),
+            'REQUEST_BODY_PARAMETERS': json.dumps(endpoint.request_body_parameters, indent=2),
+
+            # Examples
+            'REQUEST_BODY_EXAMPLE': request_example or 'N/A',
+            'RESPONSE_EXAMPLE': response_example or '{}',
+            'SUCCESS_STATUS_CODE': endpoint.success_status_code or '200',
+
+            # Additional sections
+            'ERROR_RESPONSES': error_responses,
+        }
+
+        prompt = f"""
+Task: Generate API documentation by filling in this template with the provided structured data.
+
+TEMPLATE TO FILL:
+{template}
+
+STRUCTURED DATA (all validated and extracted from OpenAPI spec):
+{json.dumps(structured_data, indent=2)}
+
+CRITICAL INSTRUCTIONS:
+1. Follow the template structure EXACTLY - preserve all markdown formatting, headers, tables, code blocks
+2. Replace placeholders like {{{{ENDPOINT_NAME}}}} with data from STRUCTURED DATA
+3. For code examples (JavaScript, Python, cURL):
+   - Generate realistic, working examples
+   - Use the actual HTTP_METHOD and ENDPOINT_PATH
+   - Include the REQUEST_BODY_EXAMPLE in the request if it exists
+   - Show the RESPONSE_EXAMPLE as the expected response
+4. Preserve all HTML comments for tabs (<!-- type: tab -->, <!-- type: tab-end -->)
+5. If a placeholder is not in STRUCTURED DATA, use reasonable defaults
+6. DO NOT include markdown code fences (```) around the entire output
+7. DO NOT include template headers or comments
+8. Output ONLY the filled template content, no wrapper, no explanations
+
+Generate the documentation now:
+        """
+
+        return self._make_ai_request(prompt)
+
+    def _build_parameter_table(self, parameters: list) -> str:
+        """Build a markdown table for parameters"""
+        if not parameters:
+            return "_None_"
+
+        table = "| Parameter | Type | Required | Description |\n"
+        table += "|-----------|------|----------|-------------|\n"
+
+        for param in parameters:
+            name = param.get('name', '')
+            param_type = param.get('type', 'string')
+            required = '✓ Yes' if param.get('required') else 'No'
+            description = param.get('description', '').replace('\n', ' ').strip()
+
+            # Add default value if present
+            if param.get('default') is not None:
+                description += f" (Default: `{param['default']}`)"
+
+            # Add enum values if present
+            if param.get('enum'):
+                enum_values = ', '.join([f'`{v}`' for v in param['enum'][:5]])
+                description += f" Allowed values: {enum_values}"
+
+            table += f"| `{name}` | {param_type} | {required} | {description} |\n"
+
+        return table
+
+    def _build_error_responses(self, responses: dict) -> str:
+        """Build error responses table (template provides the heading)"""
+        error_codes = [code for code in responses.keys() if not code.startswith('2')]
+
+        if not error_codes:
+            return "_None_"
+
+        # Just build the table - template already has the "### Error Responses" heading
+        table = "| Status Code | Description |\n"
+        table += "|-------------|-------------|\n"
+
+        for code in sorted(error_codes):
+            description = responses[code].get('description', 'Error')
+            table += f"| `{code}` | {description} |\n"
+
+        return table
+
+    def _combine_endpoint_docs(self, api_info: dict, endpoint_docs: list) -> str:
+        """Combine individual endpoint docs into a single document"""
+        # Build table of contents
+        toc = "## Table of Contents\n\n"
+        for i, doc in enumerate(endpoint_docs, 1):
+            # Extract endpoint title from doc (first # heading)
+            lines = doc.split('\n')
+            for line in lines:
+                if line.startswith('## '):
+                    toc += f"{i}. [{line[3:]}](#{line[3:].lower().replace(' ', '-')})\n"
+                    break
+
+        # Combine everything
+        full_doc = f"""# {api_info['title']} API
+
+> **Version:** {api_info['version']}
+>
+> {api_info['description']}
+
+{toc}
+
+---
+
+"""
+
+        for doc in endpoint_docs:
+            full_doc += doc + "\n\n---\n\n"
+
+        return full_doc
 
     def process_yaml_to_markdown(self, yaml_content: str, template_content: str, max_iterations: int = 10, completeness_threshold: int = 90) -> str:
         """

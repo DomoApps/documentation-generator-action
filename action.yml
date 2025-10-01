@@ -6,8 +6,8 @@ name: 'YAML to Markdown Documentation Generator'
 description: 'Generate professional markdown documentation from YAML files using AI with iterative refinement'
 author: 'Jonathan Tiritilli'
 branding:
-  icon: file-text
-  color: blue
+  icon: user-minus
+  color: yellow
 
 inputs:
   openai_api_key:
