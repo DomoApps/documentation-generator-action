@@ -19,6 +19,8 @@
 
 {{REQUEST_BODY_TABLE}}
 
+{{NESTED_OBJECT_TABLES}}
+
 ### Request Example
 
 <!--

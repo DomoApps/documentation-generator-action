@@ -73,14 +73,16 @@ def main():
             Log.print_red(f"Failed to parse YAML for summary: {e}")
             yaml_summaries[yaml_file] = {"info": {"title": "API"}}
 
-        # Generate documentation using NEW DETERMINISTIC approach
+        # Generate documentation using HYBRID approach (deterministic + validation)
         try:
             markdown_content = doc_generator.process_openapi_to_markdown_deterministic(
                 yaml_path=yaml_file,
-                template_content=template_content
+                template_content=template_content,
+                max_iterations=env_vars.max_iterations,
+                completeness_threshold=env_vars.completeness_threshold
             )
         except Exception as e:
-            Log.print_red(f"Deterministic approach failed: {e}")
+            Log.print_red(f"Hybrid approach failed: {e}")
             Log.print_red("Falling back to legacy iterative approach...")
             # Fallback to old method if deterministic fails
             markdown_content = doc_generator.process_yaml_to_markdown(

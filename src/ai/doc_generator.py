@@ -8,9 +8,11 @@ from openai import OpenAI
 from .ai_bot import AiBot
 import sys
 import os
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from log import Log
 from openapi.openapi_parser import OpenAPIParser, EndpointData
+
 
 class DocGenerator(AiBot):
     def __init__(self, client, model):
@@ -18,95 +20,158 @@ class DocGenerator(AiBot):
         self.__model = model
         self.current_iteration = 0
 
-    def process_openapi_to_markdown_deterministic(self, yaml_path: str, template_content: str) -> str:
+    def process_openapi_to_markdown_deterministic(
+        self, yaml_path: str, template_content: str, max_iterations: int = 3, completeness_threshold: int = 90
+    ) -> str:
         """
-        NEW DETERMINISTIC APPROACH: Process OpenAPI spec path-by-path using schema-based parsing
+        Process OpenAPI spec path-by-path using schema-based parsing with AI validation
 
-        This method:
+        This hybrid approach:
         1. Uses prance to resolve all $refs
         2. Parses each endpoint deterministically
         3. Extracts parameters directly from schemas
         4. Generates examples from schema types
-        5. Uses AI only for polishing the documentation
+        5. Uses AI to fill the template
+        6. **NEW: Validates output with AI and refines if needed**
 
         Args:
             yaml_path: Path to OpenAPI YAML file
             template_content: Template for rendering documentation
+            max_iterations: Maximum refinement iterations (default: 3)
+            completeness_threshold: Quality score threshold for completion (default: 90)
 
         Returns:
             Complete markdown documentation
         """
-        Log.print_green("=== Starting DETERMINISTIC OpenAPI processing ===")
+        Log.print_green("=== Starting HYBRID (Deterministic + Validation) OpenAPI processing ===")
 
         # Parse OpenAPI spec deterministically
         parser = OpenAPIParser(yaml_path)
         api_info = parser.get_api_info()
         endpoints = parser.parse_all_endpoints()
 
+        # Load original YAML for validation context
+        with open(yaml_path, 'r', encoding='utf-8') as f:
+            yaml_content = f.read()
+
         Log.print_green(f"Found {len(endpoints)} endpoints to document")
 
         # Build documentation for each endpoint
         endpoint_docs = []
         for i, endpoint in enumerate(endpoints, 1):
-            Log.print_green(f"Processing endpoint {i}/{len(endpoints)}: {endpoint.method.upper()} {endpoint.path}")
+            Log.print_green(
+                f"Processing endpoint {i}/{len(endpoints)}: {endpoint.method.upper()} {endpoint.path}"
+            )
 
             # Generate documentation for this endpoint
-            doc = self._generate_endpoint_documentation(endpoint, template_content, parser)
+            doc = self._generate_endpoint_documentation(
+                endpoint, template_content, parser
+            )
             endpoint_docs.append(doc)
 
         # Combine all endpoint documentation
         full_doc = self._combine_endpoint_docs(api_info, endpoint_docs)
 
-        Log.print_green("=== DETERMINISTIC processing complete ===")
+        # **NEW: Validation and refinement loop**
+        self.current_iteration = 0
+        while self.current_iteration < max_iterations:
+            self.current_iteration += 1
+            Log.print_green(f"Validation iteration {self.current_iteration}/{max_iterations}")
+
+            # Validate the deterministically-generated documentation
+            validation_result = self._validate_documentation(full_doc, yaml_content)
+
+            # Log validation scores
+            scores = validation_result.get("scores", {})
+            Log.print_green(f"  Overall: {scores.get('overall', 0)}/100")
+            Log.print_green(f"  Completeness: {scores.get('completeness', 0)}/100")
+            Log.print_green(f"  Template Coverage: {scores.get('template_coverage', 0)}/100")
+            Log.print_green(f"  Code Quality: {scores.get('code_quality', 0)}/100")
+            Log.print_green(f"  Markdown Syntax: {scores.get('markdown_syntax', 0)}/100")
+
+            # Check if quality threshold met
+            if self._should_exit(validation_result, completeness_threshold):
+                Log.print_green(f"Quality threshold met after {self.current_iteration} iteration(s)")
+                break
+
+            # If not meeting threshold and iterations remaining, refine
+            if self.current_iteration < max_iterations:
+                Log.print_green("Refining documentation based on validation feedback...")
+                full_doc = self._refine_documentation(full_doc, yaml_content, validation_result)
+            else:
+                Log.print_red(f"Max iterations reached. Final score: {scores.get('overall', 0)}/100")
+
+        Log.print_green("=== HYBRID processing complete ===")
         return full_doc
 
-    def _generate_endpoint_documentation(self, endpoint: EndpointData, template: str, parser: OpenAPIParser) -> str:
+    def _generate_endpoint_documentation(
+        self, endpoint: EndpointData, template: str, parser: OpenAPIParser
+    ) -> str:
         """
         Generate documentation for a single endpoint using structured data
 
         AI's job is now much simpler: just polish the already-structured data
         """
         # Build parameter tables
-        path_params_table = self._build_parameter_table(endpoint.path_parameters)
-        query_params_table = self._build_parameter_table(endpoint.query_parameters)
-        request_body_table = self._build_parameter_table(endpoint.request_body_parameters)
+        path_params_table = self._build_parameter_table(
+            endpoint.path_parameters, parser
+        )
+        query_params_table = self._build_parameter_table(
+            endpoint.query_parameters, parser
+        )
+        request_body_table = self._build_parameter_table(
+            endpoint.request_body_parameters, parser
+        )
+
+        # Generate nested object tables for request body parameters
+        nested_object_tables = self._generate_nested_object_tables(
+            endpoint.request_body_parameters, parser
+        )
 
         # Format examples
-        request_example = parser.format_example_as_json(endpoint.request_body_example) if endpoint.request_body_example else None
-        response_example = parser.format_example_as_json(endpoint.success_response_example) if endpoint.success_response_example else None
+        request_example = (
+            parser.format_example_as_json(endpoint.request_body_example)
+            if endpoint.request_body_example
+            else None
+        )
+        response_example = (
+            parser.format_example_as_json(endpoint.success_response_example)
+            if endpoint.success_response_example
+            else None
+        )
 
         # Build error responses section
         error_responses = self._build_error_responses(endpoint.responses)
 
         # Prepare structured data for the AI
         structured_data = {
-            'API_NAME': endpoint.summary or 'API Endpoint',
-            'ENDPOINT_NAME': endpoint.summary or f"{endpoint.method.upper()} {endpoint.path}",
-            'HTTP_METHOD': endpoint.method.upper(),
-            'ENDPOINT_PATH': endpoint.path,
-            'API_DESCRIPTION': endpoint.description,
-            'OPERATION_ID': endpoint.operation_id,
-
+            "API_NAME": endpoint.summary or "API Endpoint",
+            "ENDPOINT_NAME": endpoint.summary
+            or f"{endpoint.method.upper()} {endpoint.path}",
+            "HTTP_METHOD": endpoint.method.upper(),
+            "ENDPOINT_PATH": endpoint.path,
+            "API_DESCRIPTION": endpoint.description,
+            "OPERATION_ID": endpoint.operation_id,
             # Parameter tables (already formatted as markdown)
-            'PATH_PARAMETERS_TABLE': path_params_table,
-            'QUERY_PARAMETERS_TABLE': query_params_table,
-            'REQUEST_BODY_TABLE': request_body_table,
-
+            "PATH_PARAMETERS_TABLE": path_params_table,
+            "QUERY_PARAMETERS_TABLE": query_params_table,
+            "REQUEST_BODY_TABLE": request_body_table,
+            # Nested object tables
+            "NESTED_OBJECT_TABLES": nested_object_tables,
             # Request body schema description (important context!)
-            'REQUEST_BODY_DESCRIPTION': endpoint.request_body_description,
-
+            "REQUEST_BODY_DESCRIPTION": endpoint.request_body_description,
             # Raw parameter lists (for custom formatting)
-            'PATH_PARAMETERS': json.dumps(endpoint.path_parameters, indent=2),
-            'QUERY_PARAMETERS': json.dumps(endpoint.query_parameters, indent=2),
-            'REQUEST_BODY_PARAMETERS': json.dumps(endpoint.request_body_parameters, indent=2),
-
+            "PATH_PARAMETERS": json.dumps(endpoint.path_parameters, indent=2),
+            "QUERY_PARAMETERS": json.dumps(endpoint.query_parameters, indent=2),
+            "REQUEST_BODY_PARAMETERS": json.dumps(
+                endpoint.request_body_parameters, indent=2
+            ),
             # Examples
-            'REQUEST_BODY_EXAMPLE': request_example or 'N/A',
-            'RESPONSE_EXAMPLE': response_example or '{}',
-            'SUCCESS_STATUS_CODE': endpoint.success_status_code or '200',
-
+            "REQUEST_BODY_EXAMPLE": request_example or "N/A",
+            "RESPONSE_EXAMPLE": response_example or "{}",
+            "SUCCESS_STATUS_CODE": endpoint.success_status_code or "200",
             # Additional sections
-            'ERROR_RESPONSES': error_responses,
+            "ERROR_RESPONSES": error_responses,
         }
 
         prompt = f"""
@@ -127,17 +192,25 @@ CRITICAL INSTRUCTIONS:
    - Include the REQUEST_BODY_EXAMPLE in the request if it exists
    - Show the RESPONSE_EXAMPLE as the expected response
 4. Preserve all HTML comments for tabs (<!-- type: tab -->, <!-- type: tab-end -->)
+   - IMPORTANT: Every tab section MUST end with <!-- type: tab-end -->
 5. If a placeholder is not in STRUCTURED DATA, use reasonable defaults
-6. DO NOT include markdown code fences (```) around the entire output
-7. DO NOT include template headers or comments
-8. Output ONLY the filled template content, no wrapper, no explanations
+
+FORMATTING REQUIREMENTS:
+6. Add a blank line after every </details> closing tag
+7. Use consistent bullet format: Use hyphens (-) for all bullet lists, not asterisks (*)
+8. Parameter descriptions should end with a period
+9. Remove any trailing spaces from table cells
+10. DO NOT add horizontal rules (---) at the end of the output - they will be added automatically
+11. DO NOT include markdown code fences (```) around the entire output
+12. DO NOT include template headers or comments
+13. Output ONLY the filled template content, no wrapper, no explanations
 
 Generate the documentation now:
         """
 
         return self._make_ai_request(prompt)
 
-    def _build_parameter_table(self, parameters: list) -> str:
+    def _build_parameter_table(self, parameters: list, parser=None) -> str:
         """Build a markdown table for parameters"""
         if not parameters:
             return "_None_"
@@ -146,18 +219,29 @@ Generate the documentation now:
         table += "|-----------|------|----------|-------------|\n"
 
         for param in parameters:
-            name = param.get('name', '')
-            param_type = param.get('type', 'string')
-            required = '✓ Yes' if param.get('required') else 'No'
-            description = param.get('description', '').replace('\n', ' ').strip()
+            name = param.get("name", "")
+            param_type = param.get("type", "string")
+            required = "✓ Yes" if param.get("required") else "No"
+            description = param.get("description", "").replace("\n", " ").strip()
+
+            # Add schema reference link for object types
+            if param_type == "object" or "object" in param_type:
+                schema_ref = param.get("schema_ref")
+                if schema_ref and not schema_ref.startswith("inline_"):
+                    schema_name = schema_ref.split("/")[-1]
+                    # Create friendly name by removing _Nullable suffix
+                    friendly_name = schema_name.replace("_Nullable", "")
+                    # Create a link to the schema dropdown
+                    schema_link = f"[{friendly_name}](#schema-{schema_name.lower().replace('_', '-')})"
+                    param_type = schema_link
 
             # Add default value if present
-            if param.get('default') is not None:
+            if param.get("default") is not None:
                 description += f" (Default: `{param['default']}`)"
 
             # Add enum values if present
-            if param.get('enum'):
-                enum_values = ', '.join([f'`{v}`' for v in param['enum'][:5]])
+            if param.get("enum"):
+                enum_values = ", ".join([f"`{v}`" for v in param["enum"][:5]])
                 description += f" Allowed values: {enum_values}"
 
             table += f"| `{name}` | {param_type} | {required} | {description} |\n"
@@ -166,7 +250,7 @@ Generate the documentation now:
 
     def _build_error_responses(self, responses: dict) -> str:
         """Build error responses table (template provides the heading)"""
-        error_codes = [code for code in responses.keys() if not code.startswith('2')]
+        error_codes = [code for code in responses.keys() if not code.startswith("2")]
 
         if not error_codes:
             return "_None_"
@@ -176,8 +260,165 @@ Generate the documentation now:
         table += "|-------------|-------------|\n"
 
         for code in sorted(error_codes):
-            description = responses[code].get('description', 'Error')
+            description = responses[code].get("description", "Error")
             table += f"| `{code}` | {description} |\n"
+
+        return table
+
+    def _generate_nested_object_tables(
+        self, parameters: list, parser, processed_schemas: set = None
+    ) -> str:
+        """
+        Recursively generate tables for nested objects to avoid duplication.
+
+        Args:
+            parameters: List of parameter dictionaries
+            parser: OpenAPIParser instance for resolving schemas
+            processed_schemas: Set of already processed schema names to avoid duplicates
+
+        Returns:
+            Markdown string containing all nested object tables in dropdowns
+        """
+        if processed_schemas is None:
+            processed_schemas = set()
+
+        nested_tables = []
+
+        for param in parameters:
+            param_type = param.get("type", "")
+            param_name = param.get("name", "")
+
+            # Check if this is an object type that might have nested properties
+            if param_type == "object" or "object" in param_type:
+                # Try to get the schema for this parameter
+                schema = self._get_parameter_schema(param, parser)
+
+                if schema and schema.get("properties"):
+                    schema_name = self._get_schema_name(param, parser)
+
+                    # Avoid processing the same schema multiple times
+                    if schema_name and schema_name not in processed_schemas:
+                        processed_schemas.add(schema_name)
+
+                        # Generate table for this nested object
+                        nested_table = self._build_nested_object_table(
+                            schema, schema_name, parser, processed_schemas
+                        )
+                        if nested_table:
+                            # Create friendly name by removing _Nullable suffix
+                            friendly_name = schema_name.replace("_Nullable", "")
+                            # Wrap in markdown dropdown
+                            dropdown_id = (
+                                f"schema-{schema_name.lower().replace('_', '-')}"
+                            )
+                            dropdown = f"""<details>
+<summary><strong>{friendly_name} Object</strong></summary>
+
+{nested_table}
+
+</details>"""
+                            nested_tables.append(dropdown)
+
+        return "\n\n".join(nested_tables) if nested_tables else ""
+
+    def _get_parameter_schema(self, param: dict, parser) -> dict:
+        """Extract the schema for a parameter if it's an object type"""
+        # Try to resolve from schema reference first
+        schema_ref = param.get("schema_ref")
+        if schema_ref:
+            if schema_ref.startswith("inline_"):
+                return param.get("schema")
+            else:
+                resolved_schema = parser._resolve_ref(schema_ref)
+
+                # Check if this is a _Nullable schema, resolve the base schema
+                if "_Nullable" in schema_ref:
+                    base_schema_name = schema_ref.split("/")[-1].replace(
+                        "_Nullable", ""
+                    )
+                    base_schema_ref = f"#/components/schemas/{base_schema_name}"
+                    base_schema = parser._resolve_ref(base_schema_ref)
+                    return base_schema
+
+                # Check if this is an allOf schema with a $ref
+                if "allOf" in resolved_schema and len(resolved_schema["allOf"]) > 0:
+                    allof_item = resolved_schema["allOf"][0]
+                    if "$ref" in allof_item:
+                        nested_ref = allof_item["$ref"]
+                        nested_schema = parser._resolve_ref(nested_ref)
+                        return nested_schema
+
+                return resolved_schema
+
+        # Fallback to stored schema if no ref
+        if param.get("schema"):
+            return param["schema"]
+
+        return None
+
+    def _get_schema_name(self, param: dict, parser) -> str:
+        """Get the schema name for a parameter"""
+        schema_ref = param.get("schema_ref")
+        if schema_ref:
+            if schema_ref.startswith("inline_"):
+                return schema_ref.replace("inline_", "")
+            else:
+                # Extract schema name from reference
+                return schema_ref.split("/")[-1]
+
+        # Fallback to parameter name
+        return param.get("name", "Unknown")
+
+    def _build_nested_object_table(
+        self, schema: dict, schema_name: str, parser, processed_schemas: set
+    ) -> str:
+        """Build a table for a nested object schema"""
+        properties = schema.get("properties", {})
+        required_fields = schema.get("required", [])
+
+        if not properties:
+            return ""
+
+        # Build the table header (no heading since it's in the dropdown)
+        table = "| Parameter | Type | Required | Description |\n"
+        table += "|-----------|------|----------|-------------|\n"
+
+        # Process each property
+        for prop_name, prop_schema in properties.items():
+            # Handle $ref in properties
+            if "$ref" in prop_schema:
+                ref_path = prop_schema["$ref"]
+                if "_Nullable" in ref_path:
+                    type_name = ref_path.split("/")[-1].replace("_Nullable", "")
+                    prop_schema = {
+                        "type": "object",
+                        "description": f"Optional {type_name} object (nullable)",
+                    }
+                else:
+                    prop_schema = parser._resolve_ref(ref_path)
+
+            param_type = prop_schema.get("type", "string")
+            param_format = prop_schema.get("format", "")
+            if param_format:
+                param_type = f"{param_type} ({param_format})"
+
+            required = "✓ Yes" if prop_name in required_fields else "No"
+            description = prop_schema.get("description", "").replace("\n", " ").strip()
+
+            table += f"| `{prop_name}` | {param_type} | {required} | {description} |\n"
+
+            # Recursively process nested objects
+            if param_type == "object" or "object" in param_type:
+                nested_schema = prop_schema
+                if nested_schema and nested_schema.get("properties"):
+                    nested_schema_name = f"{schema_name}.{prop_name}"
+                    if nested_schema_name not in processed_schemas:
+                        processed_schemas.add(nested_schema_name)
+                        nested_table = self._build_nested_object_table(
+                            nested_schema, nested_schema_name, parser, processed_schemas
+                        )
+                        if nested_table:
+                            table += f"\n{nested_table}"
 
         return table
 
@@ -187,9 +428,9 @@ Generate the documentation now:
         toc = "## Table of Contents\n\n"
         for i, doc in enumerate(endpoint_docs, 1):
             # Extract endpoint title from doc (first # heading)
-            lines = doc.split('\n')
+            lines = doc.split("\n")
             for line in lines:
-                if line.startswith('## '):
+                if line.startswith("## "):
                     toc += f"{i}. [{line[3:]}](#{line[3:].lower().replace(' ', '-')})\n"
                     break
 
@@ -206,12 +447,24 @@ Generate the documentation now:
 
 """
 
-        for doc in endpoint_docs:
-            full_doc += doc + "\n\n---\n\n"
+        for i, doc in enumerate(endpoint_docs):
+            # Strip any trailing whitespace and separators from the doc
+            doc_cleaned = doc.rstrip()
+            # Remove trailing --- if present
+            if doc_cleaned.endswith("---"):
+                doc_cleaned = doc_cleaned[:-3].rstrip()
+
+            full_doc += doc_cleaned + "\n\n---\n\n"
 
         return full_doc
 
-    def process_yaml_to_markdown(self, yaml_content: str, template_content: str, max_iterations: int = 10, completeness_threshold: int = 90) -> str:
+    def process_yaml_to_markdown(
+        self,
+        yaml_content: str,
+        template_content: str,
+        max_iterations: int = 10,
+        completeness_threshold: int = 90,
+    ) -> str:
         """
         Main process loop for converting YAML to Markdown documentation
         """
@@ -226,19 +479,27 @@ Generate the documentation now:
             analysis_result = self._analyze_yaml(yaml_content, template_content)
 
             # Step 2: Generate/update markdown using template
-            current_markdown = self._generate_markdown(yaml_content, template_content, analysis_result)
+            current_markdown = self._generate_markdown(
+                yaml_content, template_content, analysis_result
+            )
 
             # Step 3: Validate quality and completeness
-            validation_result = self._validate_documentation(current_markdown, yaml_content)
+            validation_result = self._validate_documentation(
+                current_markdown, yaml_content
+            )
 
             # Step 4: Check exit conditions
             if self._should_exit(validation_result, completeness_threshold):
-                Log.print_green(f"Documentation complete after {self.current_iteration} iterations")
+                Log.print_green(
+                    f"Documentation complete after {self.current_iteration} iterations"
+                )
                 break
 
             # Step 5: If not complete, refine based on feedback
             if self.current_iteration < max_iterations:
-                current_markdown = self._refine_documentation(current_markdown, yaml_content, validation_result)
+                current_markdown = self._refine_documentation(
+                    current_markdown, yaml_content, validation_result
+                )
 
         return current_markdown
 
@@ -277,7 +538,9 @@ Generate the documentation now:
             Log.print_red("Using fallback analysis structure")
             return fallback_json
 
-    def _generate_markdown(self, yaml_content: str, template_content: str, analysis_data: dict) -> str:
+    def _generate_markdown(
+        self, yaml_content: str, template_content: str, analysis_data: dict
+    ) -> str:
         """Generate markdown by populating template with extracted data"""
         prompt = f"""
         Task: Fill template placeholders with YAML-extracted data
@@ -345,13 +608,23 @@ Generate the documentation now:
             # Return sensible fallback for validation
             Log.print_red("Using fallback validation structure")
             return {
-                "scores": {"overall": 75, "completeness": 75, "template_coverage": 75, "code_quality": 75, "markdown_syntax": 75},
+                "scores": {
+                    "overall": 75,
+                    "completeness": 75,
+                    "template_coverage": 75,
+                    "code_quality": 75,
+                    "markdown_syntax": 75,
+                },
                 "missing_placeholders": [],
-                "improvement_suggestions": ["JSON parsing failed, using fallback validation"],
-                "exit_criteria_met": True  # Allow processing to continue
+                "improvement_suggestions": [
+                    "JSON parsing failed, using fallback validation"
+                ],
+                "exit_criteria_met": True,  # Allow processing to continue
             }
 
-    def _refine_documentation(self, current_markdown: str, yaml_content: str, validation_result: dict) -> str:
+    def _refine_documentation(
+        self, current_markdown: str, yaml_content: str, validation_result: dict
+    ) -> str:
         """Refine documentation based on validation feedback"""
         improvements = validation_result.get("improvement_suggestions", [])
         missing_placeholders = validation_result.get("missing_placeholders", [])
@@ -384,7 +657,8 @@ Generate the documentation now:
     def _extract_template_placeholders(self, template_content: str) -> list:
         """Extract all template placeholders for reference"""
         import re
-        placeholders = re.findall(r'\{\{([^}]+)\}\}', template_content)
+
+        placeholders = re.findall(r"\{\{([^}]+)\}\}", template_content)
         return list(set(placeholders))
 
     def _extract_json_from_response(self, response: str) -> str:
@@ -393,7 +667,9 @@ Generate the documentation now:
         import json as json_lib
 
         # Strategy 1: Extract from markdown code blocks
-        json_match = re.search(r'```(?:json)?\s*(.*?)\s*```', response, re.DOTALL | re.IGNORECASE)
+        json_match = re.search(
+            r"```(?:json)?\s*(.*?)\s*```", response, re.DOTALL | re.IGNORECASE
+        )
         if json_match:
             candidate = json_match.group(1).strip()
             if self._is_valid_json(candidate):
@@ -414,7 +690,7 @@ Generate the documentation now:
 
     def _extract_balanced_json(self, text: str) -> str:
         """Extract JSON using balanced bracket counting"""
-        start_idx = text.find('{')
+        start_idx = text.find("{")
         if start_idx == -1:
             return ""
 
@@ -427,7 +703,7 @@ Generate the documentation now:
                 escape_next = False
                 continue
 
-            if char == '\\' and in_string:
+            if char == "\\" and in_string:
                 escape_next = True
                 continue
 
@@ -436,38 +712,39 @@ Generate the documentation now:
                 continue
 
             if not in_string:
-                if char == '{':
+                if char == "{":
                     bracket_count += 1
-                elif char == '}':
+                elif char == "}":
                     bracket_count -= 1
                     if bracket_count == 0:
-                        return text[start_idx:i+1]
+                        return text[start_idx : i + 1]
 
         return ""
 
     def _clean_json_response(self, response: str) -> str:
         """Clean common JSON formatting issues"""
         # Remove any text before first {
-        start_idx = response.find('{')
+        start_idx = response.find("{")
         if start_idx == -1:
             return response
 
         # Remove any text after last }
-        end_idx = response.rfind('}')
+        end_idx = response.rfind("}")
         if end_idx == -1:
             return response
 
-        cleaned = response[start_idx:end_idx+1]
+        cleaned = response[start_idx : end_idx + 1]
 
         # Fix common issues
-        cleaned = cleaned.replace('\n', '\\n')  # Escape newlines in strings
-        cleaned = cleaned.replace('\t', '\\t')  # Escape tabs
+        cleaned = cleaned.replace("\n", "\\n")  # Escape newlines in strings
+        cleaned = cleaned.replace("\t", "\\t")  # Escape tabs
 
         return cleaned
 
     def _is_valid_json(self, text: str) -> bool:
         """Check if string is valid JSON"""
         import json as json_lib
+
         try:
             json_lib.loads(text)
             return True
@@ -479,14 +756,16 @@ Generate the documentation now:
         return {
             "API_NAME": "API Documentation",
             "API_DESCRIPTION": "Generated API documentation",
-            "ENDPOINTS": [{
-                "ENDPOINT_NAME": "API Endpoint",
-                "ENDPOINT_PATH": "/api/endpoint",
-                "HTTP_METHOD": "GET",
-                "description": "API endpoint description",
-                "parameters": []
-            }],
-            "note": "Fallback structure used due to JSON parsing error"
+            "ENDPOINTS": [
+                {
+                    "ENDPOINT_NAME": "API Endpoint",
+                    "ENDPOINT_PATH": "/api/endpoint",
+                    "HTTP_METHOD": "GET",
+                    "description": "API endpoint description",
+                    "parameters": [],
+                }
+            ],
+            "note": "Fallback structure used due to JSON parsing error",
         }
 
     def generate_pr_title(self, changed_files: list, yaml_summaries: dict) -> str:
@@ -523,7 +802,7 @@ Generate the documentation now:
         try:
             title = self._make_ai_request(prompt).strip()
             # Clean up response and ensure it's reasonable
-            title = title.replace('"', '').strip()
+            title = title.replace('"', "").strip()
             if len(title) > 60:
                 title = title[:57] + "..."
             return title if title else "📚 Update API documentation"
@@ -536,11 +815,13 @@ Generate the documentation now:
         summary_parts = []
 
         for file_path in changed_files:
-            file_name = file_path.split('/')[-1].replace('.yaml', '').replace('.yml', '')
+            file_name = (
+                file_path.split("/")[-1].replace(".yaml", "").replace(".yml", "")
+            )
 
             if file_path in yaml_summaries:
                 yaml_info = yaml_summaries[file_path]
-                api_name = yaml_info.get('info', {}).get('title', file_name)
+                api_name = yaml_info.get("info", {}).get("title", file_name)
                 summary_parts.append(f"- {api_name} API ({file_name})")
             else:
                 summary_parts.append(f"- {file_name} API")
@@ -550,7 +831,9 @@ Generate the documentation now:
     def _create_fallback_pr_title(self, changed_files: list) -> str:
         """Create fallback PR title when AI generation fails"""
         if len(changed_files) == 1:
-            file_name = changed_files[0].split('/')[-1].replace('.yaml', '').replace('.yml', '')
+            file_name = (
+                changed_files[0].split("/")[-1].replace(".yaml", "").replace(".yml", "")
+            )
             return f"📚 Update {file_name} API docs"
         else:
             return f"📚 Update {len(changed_files)} API specifications"
@@ -559,8 +842,7 @@ Generate the documentation now:
         """Make request to AI model"""
         try:
             response = self.__client.chat.completions.create(
-                model=self.__model,
-                messages=[{"role": "user", "content": prompt}]
+                model=self.__model, messages=[{"role": "user", "content": prompt}]
             )
             return response.choices[0].message.content.strip()
         except Exception as e:
