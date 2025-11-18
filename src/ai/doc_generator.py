@@ -56,7 +56,7 @@ class DocGenerator(AiBot):
 
         Log.print_green(f"Found {len(endpoints)} endpoints to document")
 
-        # Build documentation for each endpoint
+        # Build documentation for each endpoint with per-endpoint validation
         endpoint_docs = []
         for i, endpoint in enumerate(endpoints, 1):
             Log.print_green(
@@ -67,42 +67,77 @@ class DocGenerator(AiBot):
             doc = self._generate_endpoint_documentation(
                 endpoint, template_content, parser
             )
+
+            # **NEW: Validate and refine THIS endpoint before moving to next**
+            doc = self._validate_and_refine_endpoint(
+                doc, endpoint, yaml_content, max_iterations, completeness_threshold
+            )
+
             endpoint_docs.append(doc)
 
         # Combine all endpoint documentation
         full_doc = self._combine_endpoint_docs(api_info, endpoint_docs)
 
-        # **NEW: Validation and refinement loop**
-        self.current_iteration = 0
-        while self.current_iteration < max_iterations:
-            self.current_iteration += 1
-            Log.print_green(f"Validation iteration {self.current_iteration}/{max_iterations}")
+        Log.print_green("=== HYBRID processing complete ===")
+        return full_doc
 
-            # Validate the deterministically-generated documentation
-            validation_result = self._validate_documentation(full_doc, yaml_content)
+    def _validate_and_refine_endpoint(
+        self, doc: str, endpoint: EndpointData, yaml_content: str,
+        max_iterations: int, completeness_threshold: int
+    ) -> str:
+        """
+        Validate and refine a single endpoint's documentation
+
+        Args:
+            doc: Initial documentation for this endpoint
+            endpoint: The endpoint data structure
+            yaml_content: Full YAML content for context
+            max_iterations: Maximum refinement iterations
+            completeness_threshold: Quality score threshold
+
+        Returns:
+            Refined documentation for this endpoint
+        """
+        iteration = 0
+        while iteration < max_iterations:
+            iteration += 1
+            Log.print_green(f"  Validation iteration {iteration}/{max_iterations}")
+
+            # Validate this specific endpoint's documentation
+            validation_result = self._validate_endpoint_documentation(
+                doc, endpoint, yaml_content
+            )
 
             # Log validation scores
             scores = validation_result.get("scores", {})
-            Log.print_green(f"  Overall: {scores.get('overall', 0)}/100")
-            Log.print_green(f"  Completeness: {scores.get('completeness', 0)}/100")
-            Log.print_green(f"  Template Coverage: {scores.get('template_coverage', 0)}/100")
-            Log.print_green(f"  Code Quality: {scores.get('code_quality', 0)}/100")
-            Log.print_green(f"  Markdown Syntax: {scores.get('markdown_syntax', 0)}/100")
+            Log.print_green(f"    Overall: {scores.get('overall', 0)}/100")
+            Log.print_green(f"    Completeness: {scores.get('completeness', 0)}/100")
+            Log.print_green(f"    Code Quality: {scores.get('code_quality', 0)}/100")
+            Log.print_green(f"    Formatting: {scores.get('formatting', 0)}/100")
+
+            # Log detailed feedback to understand what needs improvement
+            missing = validation_result.get("missing_elements", [])
+            improvements = validation_result.get("improvement_suggestions", [])
+            if missing:
+                Log.print_red(f"    Missing elements: {', '.join(missing[:3])}")
+            if improvements:
+                Log.print_red(f"    Improvements needed:")
+                for i, suggestion in enumerate(improvements[:3], 1):
+                    Log.print_red(f"      {i}. {suggestion}")
 
             # Check if quality threshold met
             if self._should_exit(validation_result, completeness_threshold):
-                Log.print_green(f"Quality threshold met after {self.current_iteration} iteration(s)")
+                Log.print_green(f"    Quality threshold met after {iteration} iteration(s)")
                 break
 
             # If not meeting threshold and iterations remaining, refine
-            if self.current_iteration < max_iterations:
-                Log.print_green("Refining documentation based on validation feedback...")
-                full_doc = self._refine_documentation(full_doc, yaml_content, validation_result)
+            if iteration < max_iterations:
+                Log.print_green(f"    Refining endpoint documentation...")
+                doc = self._refine_endpoint_documentation(doc, endpoint, validation_result)
             else:
-                Log.print_red(f"Max iterations reached. Final score: {scores.get('overall', 0)}/100")
+                Log.print_red(f"    Max iterations reached. Final score: {scores.get('overall', 0)}/100")
 
-        Log.print_green("=== HYBRID processing complete ===")
-        return full_doc
+        return doc
 
     def _generate_endpoint_documentation(
         self, endpoint: EndpointData, template: str, parser: OpenAPIParser
@@ -191,9 +226,14 @@ CRITICAL INSTRUCTIONS:
    - Use the actual HTTP_METHOD and ENDPOINT_PATH
    - Include the REQUEST_BODY_EXAMPLE in the request if it exists
    - Show the RESPONSE_EXAMPLE as the expected response
-4. Preserve all HTML comments for tabs (<!-- type: tab -->, <!-- type: tab-end -->)
+   - Use consistent URLs across all examples (e.g., always use the same base URL pattern)
+4. For response documentation:
+   - If the response example contains fields, briefly describe what each field represents
+   - Focus on documenting the fields that ARE present in the response example
+   - DO NOT invent additional response fields or error structures not in the spec
+5. Preserve all HTML comments for tabs (<!-- type: tab -->, <!-- type: tab-end -->)
    - IMPORTANT: Every tab section MUST end with <!-- type: tab-end -->
-5. If a placeholder is not in STRUCTURED DATA, use reasonable defaults
+6. If a placeholder is not in STRUCTURED DATA, use reasonable defaults
 
 FORMATTING REQUIREMENTS:
 6. Add a blank line after every </details> closing tag
@@ -621,6 +661,119 @@ Generate the documentation now:
                 ],
                 "exit_criteria_met": True,  # Allow processing to continue
             }
+
+    def _validate_endpoint_documentation(
+        self, markdown_content: str, endpoint: EndpointData, yaml_content: str
+    ) -> dict:
+        """Validate a single endpoint's documentation quality and completeness"""
+        endpoint_info = f"""
+Endpoint: {endpoint.method.upper()} {endpoint.path}
+Summary: {endpoint.summary}
+Description: {endpoint.description}
+"""
+
+        prompt = f"""
+        Task: Validate the documentation quality for a SINGLE API endpoint
+
+        IMPORTANT VALIDATION RULES:
+        1. ONLY validate what is present in the OpenAPI specification
+        2. DO NOT penalize for missing authentication, rate limiting, or other general API concerns if they are not in the spec
+        3. DO NOT penalize for missing "common error examples" or "detailed error body structure" if not in the spec
+        4. Focus on: Are the parameters documented? Are the request/response examples present? Is the formatting correct?
+
+        Evaluation criteria for THIS endpoint:
+        - Completeness: All endpoint elements from the spec documented (parameters, request body, responses as defined in spec) (0-100)
+        - Code Quality: Realistic, functional code examples for JavaScript, Python, cURL (0-100)
+        - Formatting: Proper markdown syntax, consistent spacing, proper use of tabs, details tags (0-100)
+        - Overall: Aggregate score (0-100)
+
+        SCORING GUIDANCE:
+        - 90-100: Excellent - All spec elements documented, good examples, proper formatting
+        - 80-89: Good - Minor issues with formatting or examples
+        - Below 80: Needs improvement - Missing spec elements or poor quality examples
+
+        Output JSON format:
+        {{
+          "scores": {{
+            "completeness": 0-100,
+            "code_quality": 0-100,
+            "formatting": 0-100,
+            "overall": 0-100
+          }},
+          "missing_elements": ["list", "of", "missing", "items", "that", "ARE", "in", "the", "spec"],
+          "improvement_suggestions": ["specific", "improvement", "items", "for", "what", "is", "present"],
+          "exit_criteria_met": true/false
+        }}
+
+        Endpoint Information:
+        {endpoint_info}
+
+        Documentation to validate:
+        {markdown_content}
+        """
+
+        response = self._make_ai_request(prompt)
+
+        # Extract JSON from response
+        json_str = self._extract_json_from_response(response)
+        try:
+            return json.loads(json_str)
+        except json.JSONDecodeError as e:
+            Log.print_red(f"Failed to parse endpoint validation result as JSON: {e}")
+
+            # Return sensible fallback for validation
+            return {
+                "scores": {
+                    "overall": 75,
+                    "completeness": 75,
+                    "code_quality": 75,
+                    "formatting": 75,
+                },
+                "missing_elements": [],
+                "improvement_suggestions": [
+                    "JSON parsing failed, using fallback validation"
+                ],
+                "exit_criteria_met": True,  # Allow processing to continue
+            }
+
+    def _refine_endpoint_documentation(
+        self, current_markdown: str, endpoint: EndpointData, validation_result: dict
+    ) -> str:
+        """Refine a single endpoint's documentation based on validation feedback"""
+        improvements = validation_result.get("improvement_suggestions", [])
+        missing_elements = validation_result.get("missing_elements", [])
+
+        endpoint_info = f"""
+Endpoint: {endpoint.method.upper()} {endpoint.path}
+Summary: {endpoint.summary}
+"""
+
+        prompt = f"""
+        Task: Improve the documentation for this API endpoint based on validation feedback
+
+        Endpoint Information:
+        {endpoint_info}
+
+        Priority fixes needed:
+        1. Fill missing elements: {missing_elements}
+        2. Address improvements: {improvements}
+        3. Maintain existing strengths
+        4. Output only the improved markdown
+
+        FORMATTING REQUIREMENTS (CRITICAL):
+        - Add a blank line after every </details> closing tag
+        - Use consistent bullet format: Use hyphens (-) for all bullet lists, not asterisks (*)
+        - Parameter descriptions should end with a period
+        - Remove any trailing spaces from table cells
+        - Ensure all tab sections end with <!-- type: tab-end -->
+        - DO NOT add horizontal rules (---) at the end - they will be added automatically
+        - DO NOT include markdown code fences (```) around the entire output
+
+        Current documentation:
+        {current_markdown}
+        """
+
+        return self._make_ai_request(prompt)
 
     def _refine_documentation(
         self, current_markdown: str, yaml_content: str, validation_result: dict
