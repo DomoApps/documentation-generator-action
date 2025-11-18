@@ -1,0 +1,159 @@
+name: Sync API Documentation from Source Repo
+
+# This workflow runs autonomously in the destination repo - NO secrets needed in source repo!
+# It can be triggered three ways:
+# 1. Schedule: Runs every 6 hours, checks source repo for changes
+# 2. Manual: Use workflow_dispatch to run on demand
+# 3. Source notification: Optional repository_dispatch from source repo (requires source repo secrets)
+
+on:
+  # Primary trigger - runs automatically every 6 hours
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours
+
+  # Manual trigger - use this for on-demand sync
+  workflow_dispatch:
+    inputs:
+      force_regenerate:
+        description: 'Force regenerate all docs (ignore change detection)'
+        required: false
+        type: boolean
+        default: false
+
+  # Optional - only works if source repo has APP_ID and APP_PRIVATE_KEY secrets configured
+  repository_dispatch:
+    types: [source-yaml-updated]
+
+jobs:
+  sync_docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Generate GitHub App Token
+        uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: domoinc
+          repositories: internal-domo-apis
+
+      - name: Checkout Destination Repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Clone Source Repo
+        uses: actions/checkout@v4
+        with:
+          repository: domoinc/internal-domo-apis
+          token: ${{ steps.app-token.outputs.token }}
+          path: source-repo
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyyaml
+
+      - name: Detect Changed YAML Files
+        id: detect
+        run: |
+          python .github/scripts/detect_yaml_changes.py \
+            --source source-repo/api-docs/public \
+            --dest docs/API-Reference/Product-APIs \
+            --mapping .github/doc-mapping.json \
+            --force ${{ github.event.inputs.force_regenerate || 'false' }}
+
+      - name: Check if Changes Detected
+        id: check
+        run: |
+          if [ -f changed_files.txt ] && [ -s changed_files.txt ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "Changed files detected:"
+            cat changed_files.txt
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No changes detected"
+          fi
+
+      - name: Generate Documentation
+        if: steps.check.outputs.has_changes == 'true'
+        uses: DomoApps/documentation-generator-action@main
+        with:
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          yaml_input_path: 'source-repo/api-docs/public'
+          output_path: './temp-docs'
+          process_changed_only: 'true'
+          changed_files: ${{ steps.detect.outputs.changed_files }}
+
+      - name: Sync to Destination
+        if: steps.check.outputs.has_changes == 'true'
+        run: |
+          python .github/scripts/sync_to_destination.py \
+            --generated ./temp-docs \
+            --destination docs/API-Reference/Product-APIs \
+            --mapping .github/doc-mapping.json \
+            --changed-list changed_files.txt
+
+      - name: Create Pull Request
+        if: steps.check.outputs.has_changes == 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          branch: docs/sync-api-docs
+          branch-suffix: timestamp
+          delete-branch: true
+          title: '📚 Sync API Documentation from internal-domo-apis'
+          body: |
+            ## 🤖 Auto-Generated Documentation Sync
+
+            This PR contains automatically synchronized API documentation from the source repository.
+
+            ### 📊 Changes Summary
+            - **Source Repository:** `domoinc/internal-domo-apis`
+            - **Source Path:** `api-docs/public/`
+            - **Files Processed:** See changed files below
+
+            ### 🔄 What Changed
+            ${{ steps.detect.outputs.summary }}
+
+            ### ✅ Actions Taken
+            - Detected changed YAML files in source repository
+            - Generated markdown documentation using AI
+            - Mapped files to destination paths
+            - Updated mapping configuration (if new files added)
+
+            ---
+            🤖 This PR was created automatically by the sync-api-docs workflow.
+
+            Please review the generated documentation before merging.
+          add-paths: |
+            docs/API-Reference/Product-APIs/**/*.md
+            .github/doc-mapping.json
+          assignees: ${{ github.actor }}
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## 📚 Documentation Sync Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.check.outputs.has_changes }}" == "true" ]; then
+            echo "✅ Changes detected and processed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Changed Files:" >> $GITHUB_STEP_SUMMARY
+            if [ -f changed_files.txt ]; then
+              while IFS= read -r file; do
+                echo "- \`$file\`" >> $GITHUB_STEP_SUMMARY
+              done < changed_files.txt
+            fi
+          else
+            echo "ℹ️ No changes detected - documentation is up to date" >> $GITHUB_STEP_SUMMARY
+          fi

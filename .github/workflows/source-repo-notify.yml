@@ -1,0 +1,53 @@
+# This workflow file should be copied to the SOURCE repository (domoinc/internal-domo-apis)
+# Location: .github/workflows/notify-doc-sync.yml
+
+name: Notify Documentation Sync
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - 'api-docs/public/**/*.yaml'
+      - 'api-docs/public/**/*.yml'
+
+jobs:
+  notify_destination_repo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate GitHub App Token
+        uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: DomoApps
+          repositories: domo-developer-portal
+
+      - name: Send Repository Dispatch
+        uses: peter-murray/repository-dispatch@v2
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          repository: DomoApps/domo-developer-portal
+          event-type: source-yaml-updated
+          client-payload: |
+            {
+              "source_repo": "${{ github.repository }}",
+              "source_ref": "${{ github.ref }}",
+              "source_sha": "${{ github.sha }}",
+              "pusher": "${{ github.actor }}",
+              "changed_files": "${{ toJson(github.event.commits[0].modified) }}"
+            }
+
+      - name: Summary
+        run: |
+          echo "## 📡 Notification Sent" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Notified \`DomoApps/domo-developer-portal\` about YAML changes" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The destination repository will now:" >> $GITHUB_STEP_SUMMARY
+          echo "1. Clone this repository" >> $GITHUB_STEP_SUMMARY
+          echo "2. Detect which YAML files changed" >> $GITHUB_STEP_SUMMARY
+          echo "3. Generate markdown documentation" >> $GITHUB_STEP_SUMMARY
+          echo "4. Create a pull request with the updated docs" >> $GITHUB_STEP_SUMMARY

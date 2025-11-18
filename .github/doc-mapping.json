@@ -1,0 +1,23 @@
+{
+  "source_base": "api-docs/public",
+  "dest_base": "docs/API-Reference/Product-APIs",
+  "file_mappings": {
+    "AI-Services.yaml": "AI-Services.md",
+    "Filesets.yaml": "Filesets.md"
+  },
+  "default_rule": {
+    "pattern": "*.yaml",
+    "output": "{basename}.md",
+    "description": "By default, YAML files are converted to markdown with the same basename"
+  },
+  "_metadata": {
+    "description": "This file maps source YAML files to destination markdown files",
+    "auto_updated": true,
+    "last_updated": "2025-01-13",
+    "notes": [
+      "file_mappings contains explicit source -> destination mappings",
+      "New files are automatically added using the default_rule",
+      "This file is version controlled to track mapping changes over time"
+    ]
+  }
+}

@@ -464,30 +464,18 @@ Generate the documentation now:
 
     def _combine_endpoint_docs(self, api_info: dict, endpoint_docs: list) -> str:
         """Combine individual endpoint docs into a single document"""
-        # Build table of contents
-        toc = "## Table of Contents\n\n"
-        for i, doc in enumerate(endpoint_docs, 1):
-            # Extract endpoint title from doc (first # heading)
-            lines = doc.split("\n")
-            for line in lines:
-                if line.startswith("## "):
-                    toc += f"{i}. [{line[3:]}](#{line[3:].lower().replace(' ', '-')})\n"
-                    break
-
-        # Combine everything
+        # Combine everything without table of contents
         full_doc = f"""# {api_info['title']} API
 
 > **Version:** {api_info['version']}
 >
 > {api_info['description']}
 
-{toc}
-
 ---
 
 """
 
-        for i, doc in enumerate(endpoint_docs):
+        for doc in endpoint_docs:
             # Strip any trailing whitespace and separators from the doc
             doc_cleaned = doc.rstrip()
             # Remove trailing --- if present
