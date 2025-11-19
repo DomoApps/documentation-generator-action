@@ -70,7 +70,7 @@ This system automatically syncs API documentation between two repositories:
 
 ### 1. Destination Repository Setup (domo-developer-portal)
 
-The destination repository needs these files (already created in this repo):
+The destination repository needs these files (example templates available in this repo):
 
 ```
 .github/
@@ -81,6 +81,20 @@ The destination repository needs these files (already created in this repo):
 │   └── sync_to_destination.py      # Syncs to destination
 └── doc-mapping.json                 # File mapping configuration
 ```
+
+**Copy from this repo's examples:**
+
+```bash
+# In your destination repo (e.g., DomoApps/domo-developer-portal)
+mkdir -p .github/workflows .github/scripts
+
+# Copy from documentation-generator-action repo
+cp examples/destination-repo/workflows/sync-api-docs.yml .github/workflows/
+cp examples/destination-repo/scripts/*.py .github/scripts/
+cp examples/destination-repo/doc-mapping.json .github/
+```
+
+See [examples/README.md](examples/README.md) for detailed copy instructions.
 
 **Required Secrets:**
 - `OPENAI_API_KEY` - OpenAI API key for documentation generation
@@ -107,9 +121,11 @@ If you cannot add secrets to the source repository (e.g., organization restricti
 Copy the notification workflow to the source repository:
 
 ```bash
-# In the source repo (internal-domo-apis)
+# In the source repo (e.g., domoinc/internal-domo-apis)
 mkdir -p .github/workflows
-cp /path/to/this/repo/.github/workflows/source-repo-notify.yml \
+
+# Copy from documentation-generator-action repo
+cp examples/source-repo/workflows/source-repo-notify.yml \
    .github/workflows/notify-doc-sync.yml
 ```
 

@@ -16,7 +16,7 @@ A powerful GitHub Action that leverages AI to automatically generate professiona
 - 🔀 **Automatic PR Creation**: Built-in pull request creation with generated docs
 - 🧠 **Smart PR Titles**: AI-generated descriptive titles based on content changes
 - ⚙️ **Highly Configurable**: Customize models, iterations, and output paths
-- 🔄 **Cross-Repo Sync**: Automatically sync documentation between repositories ([docs](CROSS_REPO_SYNC.md))
+- 🔄 **Cross-Repo Sync**: Automatically sync documentation between repositories ([setup guide](CROSS_REPO_SYNC.md), [examples](examples/README.md))
 
 ## 🎯 Quick Start
 
