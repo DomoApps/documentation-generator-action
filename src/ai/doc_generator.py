@@ -57,8 +57,11 @@ class DocGenerator(AiBot):
         Log.print_green(f"Found {len(endpoints)} endpoints to document")
 
         # Build documentation for each endpoint with per-endpoint validation
-        endpoint_docs = []
-        for i, endpoint in enumerate(endpoints, 1):
+        # Process endpoints in parallel while maintaining order
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        def process_endpoint(i, endpoint):
+            """Process a single endpoint and return (index, doc)"""
             Log.print_green(
                 f"Processing endpoint {i}/{len(endpoints)}: {endpoint.method.upper()} {endpoint.path}"
             )
@@ -68,14 +71,33 @@ class DocGenerator(AiBot):
                 endpoint, template_content, parser
             )
 
-            # **NEW: Validate and refine THIS endpoint before moving to next**
+            # Validate and refine THIS endpoint before moving to next
             doc = self._validate_and_refine_endpoint(
                 doc, endpoint, yaml_content, max_iterations, completeness_threshold
             )
 
-            endpoint_docs.append(doc)
+            return (i, doc)
 
-        # Combine all endpoint documentation
+        # Process in parallel but collect with original order
+        max_workers = min(len(endpoints), 5)  # Limit to 5 parallel endpoints
+        endpoint_results = [None] * len(endpoints)  # Pre-allocate list to maintain order
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Submit all endpoint processing tasks
+            future_to_index = {
+                executor.submit(process_endpoint, i, endpoint): i
+                for i, endpoint in enumerate(endpoints, 1)
+            }
+
+            # Collect results as they complete
+            for future in as_completed(future_to_index):
+                i, doc = future.result()
+                endpoint_results[i - 1] = doc  # Store in original position (i is 1-indexed)
+
+        # Filter out any None values (failed endpoints) and use ordered results
+        endpoint_docs = [doc for doc in endpoint_results if doc is not None]
+
+        # Combine all endpoint documentation (now in original order)
         full_doc = self._combine_endpoint_docs(api_info, endpoint_docs)
 
         Log.print_green("=== HYBRID processing complete ===")

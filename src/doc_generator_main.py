@@ -5,6 +5,7 @@
 import os
 import time
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from openai import OpenAI
 from ai.doc_generator import DocGenerator
 from env_vars import EnvVars
@@ -49,29 +50,40 @@ def main():
     yaml_summaries = {}
     processed_files = []
 
-    # Process each YAML file
-    for yaml_file in yaml_files:
+    # Function to process a single file (for parallel execution)
+    def process_single_file(yaml_file):
+        """Process a single YAML file and return results"""
+        import yaml as yaml_lib
+
+        result = {
+            'file': yaml_file,
+            'success': False,
+            'yaml_data': None,
+            'error': None
+        }
+
         Log.print_green(f"Processing: {yaml_file}")
 
         # Check timeout
         if time.time() - start_time > env_vars.timeout_minutes * 60:
-            Log.print_red("Timeout reached, stopping process")
-            break
+            Log.print_red("Timeout reached for this file")
+            result['error'] = 'timeout'
+            return result
 
         # Load YAML content
         yaml_content = load_yaml_file(yaml_file)
         if not yaml_content:
             Log.print_red(f"Failed to load YAML file: {yaml_file}")
-            continue
+            result['error'] = 'load_failed'
+            return result
 
         # Extract basic info for PR title generation
         try:
-            import yaml
-            yaml_data = yaml.safe_load(yaml_content)
-            yaml_summaries[yaml_file] = yaml_data
+            yaml_data = yaml_lib.safe_load(yaml_content)
+            result['yaml_data'] = yaml_data
         except Exception as e:
             Log.print_red(f"Failed to parse YAML for summary: {e}")
-            yaml_summaries[yaml_file] = {"info": {"title": "API"}}
+            result['yaml_data'] = {"info": {"title": "API"}}
 
         # Generate documentation using HYBRID approach (deterministic + validation)
         try:
@@ -85,19 +97,41 @@ def main():
             Log.print_red(f"Hybrid approach failed: {e}")
             Log.print_red("Falling back to legacy iterative approach...")
             # Fallback to old method if deterministic fails
-            markdown_content = doc_generator.process_yaml_to_markdown(
-                yaml_content=yaml_content,
-                template_content=template_content,
-                max_iterations=env_vars.max_iterations,
-                completeness_threshold=env_vars.completeness_threshold
-            )
+            try:
+                markdown_content = doc_generator.process_yaml_to_markdown(
+                    yaml_content=yaml_content,
+                    template_content=template_content,
+                    max_iterations=env_vars.max_iterations,
+                    completeness_threshold=env_vars.completeness_threshold
+                )
+            except Exception as fallback_error:
+                Log.print_red(f"Legacy approach also failed: {fallback_error}")
+                result['error'] = str(fallback_error)
+                return result
 
         # Save output
         output_file = get_output_filename(yaml_file, env_vars.markdown_output_path)
         save_markdown_file(output_file, markdown_content)
 
         Log.print_green(f"Generated documentation: {output_file}")
-        processed_files.append(yaml_file)
+        result['success'] = True
+        return result
+
+    # Process files in parallel
+    max_workers = min(len(yaml_files), 5)  # Limit to 5 parallel workers to avoid rate limits
+    Log.print_green(f"Processing {len(yaml_files)} files with {max_workers} parallel workers...")
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all tasks
+        future_to_file = {executor.submit(process_single_file, yf): yf for yf in yaml_files}
+
+        # Collect results as they complete
+        for future in as_completed(future_to_file):
+            result = future.result()
+            if result['success']:
+                processed_files.append(result['file'])
+                if result['yaml_data']:
+                    yaml_summaries[result['file']] = result['yaml_data']
 
     # Generate AI-powered PR title if files were processed
     if processed_files and env_vars.process_changed_only:
