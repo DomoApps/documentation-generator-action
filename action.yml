@@ -77,6 +77,10 @@ inputs:
     description: 'Check for existing PRs before creating new ones (only applies when create_individual_prs is true)'
     required: false
     default: 'true'
+  base_branch:
+    description: 'Base branch to create PRs from (e.g., master, main)'
+    required: false
+    default: 'master'
 
 outputs:
   documentation_path:
@@ -347,11 +351,26 @@ runs:
 
             # Create/checkout branch
             git fetch origin 2>/dev/null || true
+
+            # Ensure we're on the base branch before creating new branch
+            BASE_BRANCH="${{ inputs.base_branch }}"
+            if ! git symbolic-ref -q HEAD >/dev/null; then
+              # We're in detached HEAD, checkout base branch first
+              git checkout "$BASE_BRANCH" 2>/dev/null || true
+            fi
+
+            # Check if branch exists remotely
             if git ls-remote --heads origin "$BRANCH_NAME" | grep -q "$BRANCH_NAME"; then
+              # Branch exists remotely, checkout and update
               git checkout "$BRANCH_NAME" 2>/dev/null || git checkout -b "$BRANCH_NAME" "origin/$BRANCH_NAME"
               git pull origin "$BRANCH_NAME" || true
             else
-              git checkout -b "$BRANCH_NAME" main 2>/dev/null || git checkout "$BRANCH_NAME"
+              # Branch doesn't exist, create it from base branch
+              git checkout -b "$BRANCH_NAME" || {
+                echo "❌ Failed to create branch $BRANCH_NAME"
+                FAILED=$((FAILED + 1))
+                continue
+              }
             fi
 
             # Stage changes

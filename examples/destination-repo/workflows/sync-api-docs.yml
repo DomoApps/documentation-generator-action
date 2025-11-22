@@ -111,6 +111,7 @@ jobs:
           create_individual_prs: 'true'
           prevent_duplicate_prs: 'true'
           pr_branch_prefix: 'doc-bot'
+          base_branch: 'master'  # or 'main' depending on your repo
           changed_files: ${{ steps.read-changes.outputs.changed_files }}
           process_changed_only: 'false'  # We already filtered via detect_yaml_changes.py
 
