@@ -281,7 +281,7 @@ runs:
         fi
 
     - name: Generate Documentation
-      if: steps.should-process.outputs.should_process == 'true'
+      if: steps.should-process.outputs.should_process == 'true' && inputs.create_individual_prs != 'true'
       id: generate
       shell: bash
       env:
@@ -322,14 +322,19 @@ runs:
       env:
         FILES_TO_PROCESS: ${{ steps.filter-prs.outputs.files_to_process }}
         GH_TOKEN: ${{ github.token }}
+        OPENAI_API_KEY: ${{ inputs.openai_api_key }}
+        OPENAI_MODEL: ${{ inputs.openai_model }}
+        TEMPLATE_PATH: ${{ env.TEMPLATE_PATH }}
+        MAX_ITERATIONS: ${{ inputs.max_iterations }}
+        COMPLETENESS_THRESHOLD: ${{ inputs.completeness_threshold }}
+        TIMEOUT_MINUTES: ${{ inputs.timeout_minutes }}
       run: |
-        echo "📄 Creating individual PRs..."
+        echo "📄 Creating individual PRs (one file at a time)..."
 
         PROCESSED=0
         FAILED=0
-
-        # Store generated docs location
-        TEMP_DOCS_DIR="${{ inputs.output_path }}"
+        BASE_BRANCH="${{ inputs.base_branch }}"
+        OUTPUT_DIR="${{ inputs.output_path }}"
 
         if [[ -n "$FILES_TO_PROCESS" ]]; then
           while IFS= read -r file; do
@@ -338,53 +343,54 @@ runs:
             FILE_NAME=$(basename "$file")
             FILE_BASE="${FILE_NAME%.*}"
             BRANCH_NAME="${{ inputs.pr_branch_prefix }}/$FILE_BASE"
-            MD_FILE="${TEMP_DOCS_DIR}/${FILE_BASE}.md"
+            MD_FILE="${OUTPUT_DIR}/${FILE_BASE}.md"
 
             echo "---"
             echo "Processing: $FILE_NAME"
             echo "Branch: $BRANCH_NAME"
-            echo "Output: $MD_FILE"
 
-            # Check if generated markdown exists
-            if [[ ! -f "$MD_FILE" ]]; then
-              echo "❌ Generated markdown not found: $MD_FILE"
-              FAILED=$((FAILED + 1))
-              continue
-            fi
-
-            # Copy the generated doc to a temp location to avoid git conflicts
-            TEMP_MD="/tmp/${FILE_BASE}.md"
-            cp "$MD_FILE" "$TEMP_MD"
-
-            # Create/checkout branch
+            # Create/checkout branch first
             git fetch origin 2>/dev/null || true
 
-            # Ensure we're on the base branch before creating new branch
-            BASE_BRANCH="${{ inputs.base_branch }}"
-            if ! git symbolic-ref -q HEAD >/dev/null; then
-              # We're in detached HEAD, checkout base branch first
-              git checkout "$BASE_BRANCH" 2>/dev/null || true
-            fi
+            # Ensure we're on the base branch
+            git checkout "$BASE_BRANCH" 2>/dev/null || true
 
             # Check if branch exists remotely
             if git ls-remote --heads origin "$BRANCH_NAME" | grep -q "$BRANCH_NAME"; then
-              # Branch exists remotely, checkout and update
+              echo "Branch exists remotely, checking out..."
               git checkout "$BRANCH_NAME" 2>/dev/null || git checkout -b "$BRANCH_NAME" "origin/$BRANCH_NAME"
               git pull origin "$BRANCH_NAME" || true
             else
-              # Branch doesn't exist, create it from base branch
+              echo "Creating new branch..."
               git checkout -b "$BRANCH_NAME" || {
                 echo "❌ Failed to create branch $BRANCH_NAME"
-                rm -f "$TEMP_MD"
                 FAILED=$((FAILED + 1))
                 continue
               }
             fi
 
-            # Copy the doc back to the working tree
-            mkdir -p "$TEMP_DOCS_DIR"
-            cp "$TEMP_MD" "$MD_FILE"
-            rm -f "$TEMP_MD"
+            # Now generate documentation for THIS file only on THIS branch
+            echo "Generating documentation for $FILE_NAME..."
+            mkdir -p "$OUTPUT_DIR"
+
+            # Run the doc generator for this single file
+            YAML_INPUT_PATH="$file" \
+            MARKDOWN_OUTPUT_PATH="$OUTPUT_DIR" \
+            PROCESS_CHANGED_ONLY="false" \
+            python "${{ github.action_path }}/src/doc_generator_main.py" || {
+              echo "❌ Documentation generation failed for $FILE_NAME"
+              git checkout "$BASE_BRANCH" 2>/dev/null || true
+              FAILED=$((FAILED + 1))
+              continue
+            }
+
+            # Check if file was generated
+            if [[ ! -f "$MD_FILE" ]]; then
+              echo "❌ Generated file not found: $MD_FILE"
+              git checkout "$BASE_BRANCH" 2>/dev/null || true
+              FAILED=$((FAILED + 1))
+              continue
+            fi
 
             # Stage changes
             git add "$MD_FILE"
