@@ -423,8 +423,9 @@ runs:
               continue
             fi
 
-            # Create or update PR
-            if gh pr view "$BRANCH_NAME" --json url --jq '.url' >/dev/null 2>&1; then
+            # Create or update PR (only if there's an OPEN PR)
+            PR_STATE=$(gh pr view "$BRANCH_NAME" --json state --jq '.state' 2>/dev/null || echo "")
+            if [[ "$PR_STATE" == "OPEN" ]]; then
               PR_URL=$(gh pr view "$BRANCH_NAME" --json url --jq '.url')
               echo "✅ Updated existing PR for $FILE_NAME: $PR_URL"
               PR_URLS="${PR_URLS}${FILE_NAME}|${PR_URL}"$'\n'
