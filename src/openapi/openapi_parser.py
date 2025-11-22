@@ -89,13 +89,21 @@ class OpenAPIParser:
             yaml.dump(raw_spec, tmp)
             tmp_path = tmp.name
 
-        # Don't use prance's ResolvingParser - it fails completely if ANY ref is circular
-        # Instead, use raw spec and manually resolve refs on-demand
-        # This allows us to handle most refs while gracefully dealing with circular ones
-        Log.print_green(
-            "Using manual $ref resolution (avoids prance failures on circular refs)"
-        )
-        self.spec = raw_spec
+        # Try to use prance's ResolvingParser first (faster and more complete)
+        # Fall back to manual resolution only if it fails (circular refs, etc.)
+        try:
+            Log.print_green("Attempting to resolve $refs using prance...")
+            parser = prance.ResolvingParser(tmp_path, strict=False)
+            self.spec = parser.specification
+            self.use_manual_resolution = False
+            Log.print_green("✅ Successfully resolved all $refs using prance")
+        except Exception as e:
+            Log.print_red(f"Prance resolution failed: {e}")
+            Log.print_green(
+                "⚠️ Falling back to manual $ref resolution (some refs may be circular)"
+            )
+            self.spec = raw_spec
+            self.use_manual_resolution = True
 
         # Clean up temp file
         import os
@@ -275,8 +283,8 @@ class OpenAPIParser:
 
             endpoint.request_body_schema = schema
 
-            # Handle $ref - manually resolve it
-            if "$ref" in schema:
+            # Handle $ref - manually resolve it if prance didn't already
+            if "$ref" in schema and self.use_manual_resolution:
                 schema = self._resolve_ref(schema["$ref"])
 
             # Capture schema-level description (provides important context!)
@@ -310,8 +318,12 @@ class OpenAPIParser:
                             "description": f"Optional {type_name} object (nullable)",
                         }
                     else:
-                        # Resolve the ref (with recursion protection)
-                        prop_schema = self._resolve_ref(ref_path)
+                        # Resolve the ref manually if needed (with recursion protection)
+                        if self.use_manual_resolution:
+                            prop_schema = self._resolve_ref(ref_path)
+                        else:
+                            # Prance already resolved it, just use the ref
+                            prop_schema = {"type": "object"}
 
                 param_type = prop_schema.get("type", "string")
                 param_format = prop_schema.get("format", "")

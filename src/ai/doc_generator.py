@@ -242,20 +242,28 @@ STRUCTURED DATA (all validated and extracted from OpenAPI spec):
 
 CRITICAL INSTRUCTIONS:
 1. Follow the template structure EXACTLY - preserve all markdown formatting, headers, tables, code blocks
-2. Replace placeholders like {{{{ENDPOINT_NAME}}}} with data from STRUCTURED DATA
-3. For code examples (JavaScript, Python, cURL):
+2. CRITICAL: DO NOT add any headings (##, ###, ####, #####) that are not already in the template
+3. CRITICAL: The ONLY headings in your output should be the ones that already exist in the template
+4. CRITICAL: Keep all heading levels exactly as they appear in the template - do not change them
+5. Replace placeholders like {{{{ENDPOINT_NAME}}}} with data from STRUCTURED DATA
+6. When filling the {{{{DESCRIPTION}}}} or {{{{REQUEST_BODY_DESCRIPTION}}}} placeholders:
+   - If the source data contains HTML headings (h1, h2, h3) or markdown headings (##, ###), convert them to **bold text** instead
+   - Include description text as plain paragraphs or bold subheadings
+   - DO NOT create new markdown heading sections (###, ####, etc.)
+   - If you need to add structure to long descriptions, use **bold text** for subsection titles, NOT headings
+7. For code examples (JavaScript, Python, cURL):
    - Generate realistic, working examples
    - Use the actual HTTP_METHOD and ENDPOINT_PATH
    - Include the REQUEST_BODY_EXAMPLE in the request if it exists
    - Show the RESPONSE_EXAMPLE as the expected response
    - Use consistent URLs across all examples (e.g., always use the same base URL pattern)
-4. For response documentation:
+7. For response documentation:
    - If the response example contains fields, briefly describe what each field represents
    - Focus on documenting the fields that ARE present in the response example
    - DO NOT invent additional response fields or error structures not in the spec
-5. Preserve all HTML comments for tabs (<!-- type: tab -->, <!-- type: tab-end -->)
+8. Preserve all HTML comments for tabs (<!-- type: tab -->, <!-- type: tab-end -->)
    - IMPORTANT: Every tab section MUST end with <!-- type: tab-end -->
-6. If a placeholder is not in STRUCTURED DATA, use reasonable defaults
+9. If a placeholder is not in STRUCTURED DATA, use reasonable defaults
 
 FORMATTING REQUIREMENTS:
 6. Add a blank line after every </details> closing tag
@@ -266,6 +274,8 @@ FORMATTING REQUIREMENTS:
 11. DO NOT include markdown code fences (```) around the entire output
 12. DO NOT include template headers or comments
 13. Output ONLY the filled template content, no wrapper, no explanations
+14. CRITICAL: DO NOT add any additional ### (h3) headings beyond what's in the template
+15. CRITICAL: Keep all heading levels exactly as they appear in the template - do not change them
 
 Generate the documentation now:
         """
