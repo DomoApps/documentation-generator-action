@@ -104,14 +104,28 @@ jobs:
         if: steps.check.outputs.has_changes == 'true'
         uses: DomoApps/documentation-generator-action@main
         with:
+          # Required
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+
+          # Paths
           yaml_input_path: './source-repo/api-docs/public'
           output_path: './temp-docs'
+          template_path: 'default'  # or path to custom template
+
+          # AI Configuration
+          openai_model: 'gpt-4o'  # or 'gpt-4', 'gpt-3.5-turbo'
+          max_iterations: '3'  # Max refinement iterations (higher = better quality, more cost)
+          completeness_threshold: '90'  # Quality score threshold (0-100)
+          timeout_minutes: '30'  # Max processing time
+
+          # PR Configuration
           create_pull_request: 'true'
-          create_individual_prs: 'true'
-          prevent_duplicate_prs: 'true'
-          pr_branch_prefix: 'doc-bot'
+          create_individual_prs: 'true'  # Create one PR per file
+          prevent_duplicate_prs: 'true'  # Skip files with existing bot PRs
+          pr_branch_prefix: 'doc-bot'  # Branch naming: doc-bot/filename
           base_branch: 'master'  # or 'main' depending on your repo
+
+          # Change Detection
           changed_files: ${{ steps.read-changes.outputs.changed_files }}
           process_changed_only: 'false'  # We already filtered via detect_yaml_changes.py
 
