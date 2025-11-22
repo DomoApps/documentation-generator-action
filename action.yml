@@ -373,10 +373,10 @@ runs:
             echo "Generating documentation for $FILE_NAME..."
             mkdir -p "$OUTPUT_DIR"
 
-            # Run the doc generator for this single file
-            YAML_INPUT_PATH="$file" \
+            # Run the doc generator for this single file using changed_files mechanism
+            CHANGED_FILES="$file" \
             MARKDOWN_OUTPUT_PATH="$OUTPUT_DIR" \
-            PROCESS_CHANGED_ONLY="false" \
+            PROCESS_CHANGED_ONLY="true" \
             python "${{ github.action_path }}/src/doc_generator_main.py" || {
               echo "❌ Documentation generation failed for $FILE_NAME"
               git checkout "$BASE_BRANCH" 2>/dev/null || true
