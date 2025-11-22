@@ -92,10 +92,19 @@ jobs:
         if: steps.check.outputs.has_changes == 'true'
         id: read-changes
         run: |
-          CHANGED=$(cat changed_files.txt | tr '\n' ' ' | xargs)
+          echo "📋 Changed files from detect script:"
+          cat changed_files.txt
+          echo ""
           echo "changed_files<<EOF" >> $GITHUB_OUTPUT
           cat changed_files.txt
           echo "EOF" >> $GITHUB_OUTPUT
+
+      # Debug: Show what we're passing to action
+      - name: Debug Changed Files
+        if: steps.check.outputs.has_changes == 'true'
+        run: |
+          echo "🔍 Debug: Files being passed to action:"
+          echo "${{ steps.read-changes.outputs.changed_files }}"
 
       # Generate documentation and create individual PRs
       # The action handles everything: doc generation, PR checking, and PR creation
