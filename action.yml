@@ -61,6 +61,18 @@ inputs:
     description: 'Name for the PR branch (uses auto-generated name if not provided)'
     required: false
     default: 'docs/update-api-docs'
+  pr_branch_prefix:
+    description: 'Branch name prefix for individual PRs (e.g., "doc-bot" creates branches like "doc-bot/filename")'
+    required: false
+    default: 'doc-bot'
+  create_individual_prs:
+    description: 'Create individual PRs for each changed file instead of one PR for all changes'
+    required: false
+    default: 'false'
+  prevent_duplicate_prs:
+    description: 'Check for existing PRs before creating new ones (only applies when create_individual_prs is true)'
+    required: false
+    default: 'true'
 
 outputs:
   documentation_path:
@@ -130,6 +142,58 @@ runs:
           echo "changed_files=" >> $GITHUB_OUTPUT
         fi
 
+    - name: Filter files with existing PRs
+      id: filter-prs
+      if: inputs.create_individual_prs == 'true' && inputs.prevent_duplicate_prs == 'true' && steps.changed-yaml.outputs.has_changes == 'true'
+      shell: bash
+      env:
+        CHANGED_FILES: ${{ steps.changed-yaml.outputs.changed_files }}
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        echo "🔍 Checking for existing PRs..."
+
+        FILES_TO_PROCESS=""
+        SKIPPED_COUNT=0
+
+        if [[ -n "$CHANGED_FILES" ]]; then
+          echo "$CHANGED_FILES" | while IFS= read -r file; do
+            [[ -z "$file" ]] && continue
+
+            FILE_NAME=$(basename "$file")
+            FILE_BASE="${FILE_NAME%.*}"
+            BRANCH_NAME="${{ inputs.pr_branch_prefix }}/$FILE_BASE"
+
+            # Check if PR already exists for this branch
+            if gh pr list --state open --head "$BRANCH_NAME" --json number,title --jq '.[0].number' | grep -q .; then
+              PR_NUM=$(gh pr list --state open --head "$BRANCH_NAME" --json number --jq '.[0].number')
+              echo "⏭️ Skipping $FILE_NAME (PR #$PR_NUM already exists)"
+              SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+            else
+              echo "✅ Will process $FILE_NAME (no existing PR)"
+              FILES_TO_PROCESS="${FILES_TO_PROCESS}${file}"$'\n'
+            fi
+          done
+        fi
+
+        # Remove trailing newline
+        FILES_TO_PROCESS=$(echo "$FILES_TO_PROCESS" | sed '/^$/d')
+
+        if [[ -z "$FILES_TO_PROCESS" ]]; then
+          echo "⚠️ All files already have open PRs, nothing to process"
+          echo "files_to_process=" >> $GITHUB_OUTPUT
+          echo "has_files_to_process=false" >> $GITHUB_OUTPUT
+          echo "skipped_count=$SKIPPED_COUNT" >> $GITHUB_OUTPUT
+        else
+          echo "📝 Files to process:"
+          echo "$FILES_TO_PROCESS" | sed 's/^/  - /'
+
+          echo "files_to_process<<EOF" >> $GITHUB_OUTPUT
+          echo "$FILES_TO_PROCESS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "has_files_to_process=true" >> $GITHUB_OUTPUT
+          echo "skipped_count=$SKIPPED_COUNT" >> $GITHUB_OUTPUT
+        fi
+
     - name: Prepare directories and template
       shell: bash
       run: |
@@ -164,7 +228,9 @@ runs:
         fi
 
     - name: Generate Documentation
-      if: steps.changed-yaml.outputs.has_changes == 'true'
+      if: |
+        steps.changed-yaml.outputs.has_changes == 'true' &&
+        (inputs.create_individual_prs != 'true' || steps.filter-prs.outputs.has_files_to_process == 'true')
       id: generate
       shell: bash
       env:
@@ -177,13 +243,17 @@ runs:
         COMPLETENESS_THRESHOLD: ${{ inputs.completeness_threshold }}
         TIMEOUT_MINUTES: ${{ inputs.timeout_minutes }}
         PROCESS_CHANGED_ONLY: ${{ inputs.process_changed_only }}
-        CHANGED_FILES: ${{ steps.changed-yaml.outputs.changed_files }}
+        CHANGED_FILES: ${{ inputs.create_individual_prs == 'true' && steps.filter-prs.outputs.files_to_process || steps.changed-yaml.outputs.changed_files }}
       run: |
         echo "🚀 Starting documentation generation..."
         echo "📁 Input: ${{ inputs.yaml_input_path }}"
         echo "📄 Output: ${{ inputs.output_path }}"
         echo "🎨 Template: $TEMPLATE_PATH"
         echo "🤖 AI Model: ${{ inputs.openai_model }}"
+
+        if [[ "${{ inputs.create_individual_prs }}" == "true" && "${{ steps.filter-prs.outputs.skipped_count }}" != "0" ]]; then
+          echo "⏭️ Skipped ${{ steps.filter-prs.outputs.skipped_count }} file(s) with existing PRs"
+        fi
 
         # Run the documentation generator
         python "${{ github.action_path }}/src/doc_generator_main.py"

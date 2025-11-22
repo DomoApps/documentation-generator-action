@@ -87,176 +87,30 @@ jobs:
             echo "No changes detected"
           fi
 
-      # Process each changed file individually to create separate PRs
-      - name: Process Changed Files Individually
+      # Generate documentation and create individual PRs
+      # The action handles everything: doc generation, PR checking, and PR creation
+      - name: Generate Documentation and Create PRs
+        if: steps.check.outputs.has_changes == 'true'
+        uses: DomoApps/documentation-generator-action@main
+        with:
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          yaml_input_path: './source-repo/api-docs/public'
+          output_path: './temp-docs'
+          create_pull_request: 'true'
+          create_individual_prs: 'true'
+          prevent_duplicate_prs: 'true'
+          pr_branch_prefix: 'doc-bot'
+          process_changed_only: 'false'  # We already filtered via detect_yaml_changes.py
+
+      # Sync generated docs to destination paths
+      - name: Sync to Destination
         if: steps.check.outputs.has_changes == 'true'
         run: |
-          # Initialize counters
-          TOTAL_FILES=0
-          PROCESSED_FILES=0
-          SKIPPED_FILES=0
-          FAILED_FILES=0
-
-          echo "## Processing Files Individually" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          # Process each file
-          while IFS= read -r file; do
-            TOTAL_FILES=$((TOTAL_FILES + 1))
-
-            if [ ! -f "$file" ]; then
-              echo "⚠️ File not found: $file" | tee -a $GITHUB_STEP_SUMMARY
-              FAILED_FILES=$((FAILED_FILES + 1))
-              continue
-            fi
-
-            FILE_NAME=$(basename "$file")
-            FILE_BASE="${FILE_NAME%.*}"
-            BRANCH_NAME="docs/sync-api-docs-$FILE_BASE"
-
-            echo "---" >> $GITHUB_STEP_SUMMARY
-            echo "### 📄 Processing: $FILE_NAME" >> $GITHUB_STEP_SUMMARY
-
-            # Check if PR already exists for this file
-            if python .github/scripts/check_existing_prs.py \
-                --file-name "$FILE_NAME" \
-                --branch-prefix "docs/sync-api-docs" \
-                --output-format text; then
-
-              echo "✅ Creating new PR for $FILE_NAME"
-              echo "- **Status:** Creating new PR" >> $GITHUB_STEP_SUMMARY
-
-              # Create temporary directory for this file only
-              mkdir -p "./temp-yaml-$FILE_BASE"
-              cp "$file" "./temp-yaml-$FILE_BASE/"
-
-              # Create temporary output directory
-              mkdir -p "./temp-docs-$FILE_BASE"
-
-              # Set environment variables for the action
-              export OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}"
-              export YAML_INPUT_PATH="./temp-yaml-$FILE_BASE"
-              export MARKDOWN_OUTPUT_PATH="./temp-docs-$FILE_BASE"
-              export TEMPLATE_PATH="./templates/product-api.template.md"
-              export OPENAI_MODEL="gpt-4o"
-              export PROCESS_CHANGED_ONLY="false"
-
-              # Run the doc generator
-              python -m pip install -q openai pyyaml prance jsonschema 2>/dev/null || true
-              python << 'PYEOF' || {
-                echo "❌ Failed to generate docs for $FILE_NAME" | tee -a $GITHUB_STEP_SUMMARY
-                FAILED_FILES=$((FAILED_FILES + 1))
-                rm -rf "./temp-yaml-$FILE_BASE" "./temp-docs-$FILE_BASE"
-                continue
-              }
-          import sys
-          import os
-          sys.path.insert(0, '${{ github.action_path }}/src')
-
-          # Import and run the main function
-          from doc_generator_main import main
-          main()
-          PYEOF
-
-              # Sync to destination (create file list with just this file)
-              echo "$file" > "./temp-changed-$FILE_BASE.txt"
-
-              python .github/scripts/sync_to_destination.py \
-                --generated "./temp-docs-$FILE_BASE" \
-                --destination "docs/API-Reference/Product-APIs" \
-                --mapping .github/doc-mapping.json \
-                --changed-list "./temp-changed-$FILE_BASE.txt" || {
-                  echo "❌ Failed to sync $FILE_NAME" | tee -a $GITHUB_STEP_SUMMARY
-                  FAILED_FILES=$((FAILED_FILES + 1))
-                  rm -rf "./temp-yaml-$FILE_BASE" "./temp-docs-$FILE_BASE" "./temp-changed-$FILE_BASE.txt"
-                  continue
-                }
-
-              # Check if there are changes to commit
-              if [[ -n $(git status --porcelain docs/API-Reference/Product-APIs .github/doc-mapping.json 2>/dev/null) ]]; then
-                # Checkout or create branch
-                git fetch origin
-                if git rev-parse --verify "origin/$BRANCH_NAME" >/dev/null 2>&1; then
-                  git checkout "$BRANCH_NAME"
-                  git pull origin "$BRANCH_NAME"
-                else
-                  git checkout -b "$BRANCH_NAME"
-                fi
-
-                # Stage changes
-                git add docs/API-Reference/Product-APIs
-                git add .github/doc-mapping.json 2>/dev/null || true
-
-                # Commit changes
-                git config user.name "github-actions[bot]"
-                git config user.email "github-actions[bot]@users.noreply.github.com"
-
-                git commit -m "📚 Sync documentation for $FILE_NAME" -m "Auto-generated from source repository." -m "Source file: $file"
-
-                # Push changes
-                git push -f origin "$BRANCH_NAME"
-
-                # Create or update PR using GitHub CLI
-                if gh pr view "$BRANCH_NAME" --json number >/dev/null 2>&1; then
-                  echo "- **Result:** 🔄 Updated existing PR" >> $GITHUB_STEP_SUMMARY
-                  PROCESSED_FILES=$((PROCESSED_FILES + 1))
-                else
-                  gh pr create \
-                    --title "📚 Sync documentation for $FILE_NAME" \
-                    --body "## 🤖 Auto-Generated Documentation Sync
-
-          This PR contains automatically synchronized API documentation for a single file.
-
-          ### 📊 File Details
-          - **Source File:** \`$file\`
-          - **Generated File:** \`$FILE_NAME\`
-          - **Source Repository:** \`domoinc/internal-domo-apis\`
-
-          ### ✅ Actions Taken
-          - Detected changes in source YAML file
-          - Generated markdown documentation using AI
-          - Synced to destination path
-          - Updated mapping configuration (if needed)
-
-          ---
-          🤖 This PR was created automatically by the sync-api-docs workflow.
-
-          Please review the generated documentation before merging." \
-                    --assignee "${{ github.actor }}" \
-                    --head "$BRANCH_NAME" \
-                    --base main && {
-                      echo "- **Result:** ✅ PR created successfully" >> $GITHUB_STEP_SUMMARY
-                      PROCESSED_FILES=$((PROCESSED_FILES + 1))
-                    } || {
-                      echo "- **Result:** ⚠️ PR creation failed (might already exist)" >> $GITHUB_STEP_SUMMARY
-                    }
-                fi
-
-                # Return to main branch
-                git checkout main
-              else
-                echo "- **Result:** ℹ️ No changes needed" >> $GITHUB_STEP_SUMMARY
-                SKIPPED_FILES=$((SKIPPED_FILES + 1))
-              fi
-
-              # Cleanup
-              rm -rf "./temp-yaml-$FILE_BASE" "./temp-docs-$FILE_BASE" "./temp-changed-$FILE_BASE.txt"
-
-            else
-              echo "⏭️ Skipping $FILE_NAME - PR already exists"
-              echo "- **Status:** ⏭️ Skipped (PR already exists)" >> $GITHUB_STEP_SUMMARY
-              SKIPPED_FILES=$((SKIPPED_FILES + 1))
-            fi
-
-          done < changed_files.txt
-
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "---" >> $GITHUB_STEP_SUMMARY
-          echo "### 📊 Processing Summary" >> $GITHUB_STEP_SUMMARY
-          echo "- **Total Files:** $TOTAL_FILES" >> $GITHUB_STEP_SUMMARY
-          echo "- **Processed (PRs created/updated):** $PROCESSED_FILES" >> $GITHUB_STEP_SUMMARY
-          echo "- **Skipped (existing PRs):** $SKIPPED_FILES" >> $GITHUB_STEP_SUMMARY
-          echo "- **Failed:** $FAILED_FILES" >> $GITHUB_STEP_SUMMARY
+          python .github/scripts/sync_to_destination.py \
+            --generated ./temp-docs \
+            --destination docs/API-Reference/Product-APIs \
+            --mapping .github/doc-mapping.json \
+            --changed-list changed_files.txt
 
       - name: Summary
         if: always()
@@ -272,6 +126,11 @@ jobs:
                 echo "- \`$file\`" >> $GITHUB_STEP_SUMMARY
               done < changed_files.txt
             fi
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Action Taken:" >> $GITHUB_STEP_SUMMARY
+            echo "- Documentation generated for each changed file" >> $GITHUB_STEP_SUMMARY
+            echo "- Individual PR created per file (if not already exists)" >> $GITHUB_STEP_SUMMARY
+            echo "- Files with existing PRs were skipped" >> $GITHUB_STEP_SUMMARY
           else
             echo "ℹ️ No changes detected - documentation is up to date" >> $GITHUB_STEP_SUMMARY
           fi
