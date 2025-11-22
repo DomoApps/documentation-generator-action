@@ -379,7 +379,7 @@ runs:
             # Check if there are changes to commit
             if [[ -z $(git diff --cached --name-only) ]]; then
               echo "ℹ️ No changes to commit for $FILE_NAME"
-              git checkout main 2>/dev/null || true
+              git checkout "$BASE_BRANCH" 2>/dev/null || true
               continue
             fi
 
@@ -389,7 +389,7 @@ runs:
 
             if ! git commit -m "📚 Update documentation for $FILE_NAME" -m "Auto-generated from YAML specification" -m "Source: $file"; then
               echo "⚠️ Commit failed for $FILE_NAME"
-              git checkout main 2>/dev/null || true
+              git checkout "$BASE_BRANCH" 2>/dev/null || true
               FAILED=$((FAILED + 1))
               continue
             fi
@@ -397,7 +397,7 @@ runs:
             # Push
             if ! git push -f origin "$BRANCH_NAME"; then
               echo "❌ Push failed for $FILE_NAME"
-              git checkout main 2>/dev/null || true
+              git checkout "$BASE_BRANCH" 2>/dev/null || true
               FAILED=$((FAILED + 1))
               continue
             fi
@@ -428,7 +428,7 @@ runs:
         Please review the generated documentation before merging." \
                 --assignee "${{ github.actor }}" \
                 --head "$BRANCH_NAME" \
-                --base main; then
+                --base "$BASE_BRANCH"; then
                 echo "✅ Created PR for $FILE_NAME"
                 PROCESSED=$((PROCESSED + 1))
               else
@@ -437,8 +437,8 @@ runs:
               fi
             fi
 
-            # Return to main
-            git checkout main 2>/dev/null || true
+            # Return to base branch
+            git checkout "$BASE_BRANCH" 2>/dev/null || true
           done < <(echo "$FILES_TO_PROCESS")
 
           echo ""
