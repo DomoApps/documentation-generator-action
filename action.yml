@@ -154,26 +154,32 @@ runs:
 
         FILES_TO_PROCESS=""
         SKIPPED_COUNT=0
+        TOTAL_COUNT=0
 
         if [[ -n "$CHANGED_FILES" ]]; then
-          echo "$CHANGED_FILES" | while IFS= read -r file; do
+          # Use process substitution to avoid subshell issue
+          while IFS= read -r file; do
             [[ -z "$file" ]] && continue
+            TOTAL_COUNT=$((TOTAL_COUNT + 1))
 
             FILE_NAME=$(basename "$file")
             FILE_BASE="${FILE_NAME%.*}"
             BRANCH_NAME="${{ inputs.pr_branch_prefix }}/$FILE_BASE"
 
             # Check if PR already exists for this branch
-            if gh pr list --state open --head "$BRANCH_NAME" --json number,title --jq '.[0].number' | grep -q .; then
-              PR_NUM=$(gh pr list --state open --head "$BRANCH_NAME" --json number --jq '.[0].number')
-              echo "⏭️ Skipping $FILE_NAME (PR #$PR_NUM already exists)"
+            if gh pr list --state open --head "$BRANCH_NAME" --json number,title --jq '.[0].number' 2>/dev/null | grep -q .; then
+              PR_NUM=$(gh pr list --state open --head "$BRANCH_NAME" --json number --jq '.[0].number' 2>/dev/null || echo "unknown")
+              echo "⏭️ Skipping $FILE_NAME (PR #$PR_NUM already exists for branch: $BRANCH_NAME)"
               SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
             else
-              echo "✅ Will process $FILE_NAME (no existing PR)"
+              echo "✅ Will process $FILE_NAME (no existing PR for branch: $BRANCH_NAME)"
               FILES_TO_PROCESS="${FILES_TO_PROCESS}${file}"$'\n'
             fi
-          done
+          done < <(echo "$CHANGED_FILES")
         fi
+
+        echo ""
+        echo "Summary: Total=$TOTAL_COUNT, Skipped=$SKIPPED_COUNT, ToProcess=$((TOTAL_COUNT - SKIPPED_COUNT))"
 
         # Remove trailing newline
         FILES_TO_PROCESS=$(echo "$FILES_TO_PROCESS" | sed '/^$/d')
