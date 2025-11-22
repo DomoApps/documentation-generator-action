@@ -328,6 +328,9 @@ runs:
         PROCESSED=0
         FAILED=0
 
+        # Store generated docs location
+        TEMP_DOCS_DIR="${{ inputs.output_path }}"
+
         if [[ -n "$FILES_TO_PROCESS" ]]; then
           while IFS= read -r file; do
             [[ -z "$file" ]] && continue
@@ -335,7 +338,7 @@ runs:
             FILE_NAME=$(basename "$file")
             FILE_BASE="${FILE_NAME%.*}"
             BRANCH_NAME="${{ inputs.pr_branch_prefix }}/$FILE_BASE"
-            MD_FILE="${{ inputs.output_path }}/${FILE_BASE}.md"
+            MD_FILE="${TEMP_DOCS_DIR}/${FILE_BASE}.md"
 
             echo "---"
             echo "Processing: $FILE_NAME"
@@ -348,6 +351,10 @@ runs:
               FAILED=$((FAILED + 1))
               continue
             fi
+
+            # Copy the generated doc to a temp location to avoid git conflicts
+            TEMP_MD="/tmp/${FILE_BASE}.md"
+            cp "$MD_FILE" "$TEMP_MD"
 
             # Create/checkout branch
             git fetch origin 2>/dev/null || true
@@ -368,10 +375,16 @@ runs:
               # Branch doesn't exist, create it from base branch
               git checkout -b "$BRANCH_NAME" || {
                 echo "❌ Failed to create branch $BRANCH_NAME"
+                rm -f "$TEMP_MD"
                 FAILED=$((FAILED + 1))
                 continue
               }
             fi
+
+            # Copy the doc back to the working tree
+            mkdir -p "$TEMP_DOCS_DIR"
+            cp "$TEMP_MD" "$MD_FILE"
+            rm -f "$TEMP_MD"
 
             # Stage changes
             git add "$MD_FILE"
