@@ -116,8 +116,9 @@ jobs:
           process_changed_only: 'false'  # We already filtered via detect_yaml_changes.py
 
       # Sync generated docs to destination paths
+      # Note: This step is skipped when using individual PRs since docs are committed on each branch
       - name: Sync to Destination
-        if: steps.check.outputs.has_changes == 'true'
+        if: steps.check.outputs.has_changes == 'true' && hashFiles('./temp-docs/*.md') != ''
         run: |
           python .github/scripts/sync_to_destination.py \
             --generated ./temp-docs \

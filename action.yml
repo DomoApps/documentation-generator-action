@@ -317,6 +317,7 @@ runs:
         echo "✅ Generated $FILES_COUNT markdown file(s)"
 
     - name: Create Individual Pull Requests
+      id: create-individual-prs
       if: inputs.create_pull_request == 'true' && inputs.create_individual_prs == 'true' && steps.should-process.outputs.should_process == 'true'
       shell: bash
       env:
@@ -335,6 +336,7 @@ runs:
         FAILED=0
         BASE_BRANCH="${{ inputs.base_branch }}"
         OUTPUT_DIR="${{ inputs.output_path }}"
+        PR_URLS=""
 
         if [[ -n "$FILES_TO_PROCESS" ]]; then
           while IFS= read -r file; do
@@ -422,11 +424,13 @@ runs:
             fi
 
             # Create or update PR
-            if gh pr view "$BRANCH_NAME" --json number >/dev/null 2>&1; then
-              echo "✅ Updated existing PR for $FILE_NAME"
+            if gh pr view "$BRANCH_NAME" --json url --jq '.url' >/dev/null 2>&1; then
+              PR_URL=$(gh pr view "$BRANCH_NAME" --json url --jq '.url')
+              echo "✅ Updated existing PR for $FILE_NAME: $PR_URL"
+              PR_URLS="${PR_URLS}${FILE_NAME}|${PR_URL}"$'\n'
               PROCESSED=$((PROCESSED + 1))
             else
-              if gh pr create \
+              PR_URL=$(gh pr create \
                 --title "📚 Update documentation for $FILE_NAME" \
                 --body "## 🤖 Auto-Generated Documentation Update
 
@@ -447,8 +451,11 @@ runs:
         Please review the generated documentation before merging." \
                 --assignee "${{ github.actor }}" \
                 --head "$BRANCH_NAME" \
-                --base "$BASE_BRANCH"; then
-                echo "✅ Created PR for $FILE_NAME"
+                --base "$BASE_BRANCH" 2>&1)
+
+              if [[ $PR_URL == https://* ]]; then
+                echo "✅ Created PR for $FILE_NAME: $PR_URL"
+                PR_URLS="${PR_URLS}${FILE_NAME}|${PR_URL}"$'\n'
                 PROCESSED=$((PROCESSED + 1))
               else
                 echo "⚠️ PR creation failed for $FILE_NAME"
@@ -464,6 +471,11 @@ runs:
           echo "📊 Individual PR Summary:"
           echo "- Processed: $PROCESSED"
           echo "- Failed: $FAILED"
+
+          # Save PR URLs to output for summary step
+          echo "PR_URLS<<EOF" >> $GITHUB_OUTPUT
+          echo "$PR_URLS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
         else
           echo "⚠️ No files to process"
         fi
@@ -508,27 +520,41 @@ runs:
       if: steps.should-process.outputs.should_process == 'true'
       shell: bash
       run: |
-        FILES_COUNT=$(find "${{ inputs.output_path }}" -name "*.md" | wc -l)
-
         echo "## 📚 Documentation Generation Complete!" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "- **Input Directory:** \`${{ inputs.yaml_input_path }}\`" >> $GITHUB_STEP_SUMMARY
-        echo "- **Output Directory:** \`${{ inputs.output_path }}\`" >> $GITHUB_STEP_SUMMARY
-        echo "- **Files Generated:** $FILES_COUNT" >> $GITHUB_STEP_SUMMARY
         echo "- **AI Model Used:** ${{ inputs.openai_model }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Template:** ${{ env.TEMPLATE_PATH }}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
-        if [ "${{ inputs.create_pull_request }}" == "true" ]; then
+        if [ "${{ inputs.create_individual_prs }}" == "true" ]; then
+          echo "### 🌿 Individual Pull Requests" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          PR_URLS="${{ steps.create-individual-prs.outputs.PR_URLS }}"
+          if [[ -n "$PR_URLS" ]]; then
+            while IFS='|' read -r filename url; do
+              [[ -z "$filename" ]] && continue
+              echo "- **$filename**: $url" >> $GITHUB_STEP_SUMMARY
+            done <<< "$PR_URLS"
+          else
+            echo "- No PRs created" >> $GITHUB_STEP_SUMMARY
+          fi
+        elif [ "${{ inputs.create_pull_request }}" == "true" ]; then
           echo "### 🌿 Pull Request Created" >> $GITHUB_STEP_SUMMARY
           echo "- **Branch:** Auto-generated with timestamp" >> $GITHUB_STEP_SUMMARY
           echo "- **Assignee:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Status:** Ready for review" >> $GITHUB_STEP_SUMMARY
         else
-          echo "### Generated Files:" >> $GITHUB_STEP_SUMMARY
-          if [[ $FILES_COUNT -gt 0 ]]; then
-            find "${{ inputs.output_path }}" -name "*.md" | while read file; do
-              echo "- \`$(basename "$file")\`" >> $GITHUB_STEP_SUMMARY
-            done
+          # Count files if output directory exists
+          if [[ -d "${{ inputs.output_path }}" ]]; then
+            FILES_COUNT=$(find "${{ inputs.output_path }}" -name "*.md" 2>/dev/null | wc -l)
+            echo "- **Files Generated:** $FILES_COUNT" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Generated Files:" >> $GITHUB_STEP_SUMMARY
+            if [[ $FILES_COUNT -gt 0 ]]; then
+              find "${{ inputs.output_path }}" -name "*.md" 2>/dev/null | while read file; do
+                echo "- \`$(basename "$file")\`" >> $GITHUB_STEP_SUMMARY
+              done
+            fi
           fi
         fi
