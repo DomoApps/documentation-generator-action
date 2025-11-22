@@ -194,7 +194,42 @@ runs:
           echo "skipped_count=$SKIPPED_COUNT" >> $GITHUB_OUTPUT
         fi
 
+    - name: Check if processing needed
+      id: should-process
+      shell: bash
+      run: |
+        # Determine if we should continue processing
+        if [[ "${{ inputs.create_individual_prs }}" == "true" && "${{ inputs.prevent_duplicate_prs }}" == "true" ]]; then
+          # For individual PRs with duplicate prevention, check if any files need processing
+          if [[ "${{ steps.filter-prs.outputs.has_files_to_process }}" != "true" ]]; then
+            echo "ℹ️ All files have existing PRs, no processing needed"
+            echo "## ℹ️ No Processing Needed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "All changed files already have open pull requests." >> $GITHUB_STEP_SUMMARY
+            echo "Skipped ${{ steps.filter-prs.outputs.skipped_count }} file(s) with existing PRs." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Action taken:** Workflow completed successfully without generating new documentation." >> $GITHUB_STEP_SUMMARY
+            echo "should_process=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+        fi
+
+        # Check if there are any changes to process
+        if [[ "${{ steps.changed-yaml.outputs.has_changes }}" != "true" ]]; then
+          echo "ℹ️ No changes detected, no processing needed"
+          echo "## ℹ️ No Changes Detected" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "No YAML files have changed since last run." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Action taken:** Workflow completed successfully without generating documentation." >> $GITHUB_STEP_SUMMARY
+          echo "should_process=false" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
+        echo "should_process=true" >> $GITHUB_OUTPUT
+
     - name: Prepare directories and template
+      if: steps.should-process.outputs.should_process == 'true'
       shell: bash
       run: |
         # Create output directory
@@ -228,9 +263,7 @@ runs:
         fi
 
     - name: Generate Documentation
-      if: |
-        steps.changed-yaml.outputs.has_changes == 'true' &&
-        (inputs.create_individual_prs != 'true' || steps.filter-prs.outputs.has_files_to_process == 'true')
+      if: steps.should-process.outputs.should_process == 'true'
       id: generate
       shell: bash
       env:
@@ -266,7 +299,7 @@ runs:
         echo "✅ Generated $FILES_COUNT markdown file(s)"
 
     - name: Create Pull Request with Generated Documentation
-      if: inputs.create_pull_request == 'true' && steps.changed-yaml.outputs.has_changes == 'true'
+      if: inputs.create_pull_request == 'true' && steps.should-process.outputs.should_process == 'true' && inputs.create_individual_prs != 'true'
       uses: peter-evans/create-pull-request@v5
       with:
         token: ${{ github.token }}
@@ -302,6 +335,7 @@ runs:
         assignees: ${{ github.actor }}
 
     - name: Summary
+      if: steps.should-process.outputs.should_process == 'true'
       shell: bash
       run: |
         FILES_COUNT=$(find "${{ inputs.output_path }}" -name "*.md" | wc -l)
