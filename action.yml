@@ -45,6 +45,10 @@ inputs:
     description: 'Only process YAML files that have changed (requires git history)'
     required: false
     default: 'false'
+  changed_files:
+    description: 'Newline-separated list of changed files to process (overrides internal change detection)'
+    required: false
+    default: ''
   base_ref:
     description: 'Base reference for change detection (default: main branch or PR base)'
     required: false
@@ -144,10 +148,10 @@ runs:
 
     - name: Filter files with existing PRs
       id: filter-prs
-      if: inputs.create_individual_prs == 'true' && inputs.prevent_duplicate_prs == 'true' && steps.changed-yaml.outputs.has_changes == 'true'
+      if: inputs.create_individual_prs == 'true' && inputs.prevent_duplicate_prs == 'true'
       shell: bash
       env:
-        CHANGED_FILES: ${{ steps.changed-yaml.outputs.changed_files }}
+        CHANGED_FILES: ${{ inputs.changed_files || steps.changed-yaml.outputs.changed_files }}
         GH_TOKEN: ${{ github.token }}
       run: |
         echo "🔍 Checking for existing PRs..."
@@ -221,7 +225,11 @@ runs:
         fi
 
         # Check if there are any changes to process
-        if [[ "${{ steps.changed-yaml.outputs.has_changes }}" != "true" ]]; then
+        # Use external changed_files input if provided, otherwise check internal detection
+        if [[ -n "${{ inputs.changed_files }}" ]]; then
+          # External file list provided - always process
+          echo "should_process=true" >> $GITHUB_OUTPUT
+        elif [[ "${{ steps.changed-yaml.outputs.has_changes }}" != "true" ]]; then
           echo "ℹ️ No changes detected, no processing needed"
           echo "## ℹ️ No Changes Detected" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -230,9 +238,9 @@ runs:
           echo "**Action taken:** Workflow completed successfully without generating documentation." >> $GITHUB_STEP_SUMMARY
           echo "should_process=false" >> $GITHUB_OUTPUT
           exit 0
+        else
+          echo "should_process=true" >> $GITHUB_OUTPUT
         fi
-
-        echo "should_process=true" >> $GITHUB_OUTPUT
 
     - name: Prepare directories and template
       if: steps.should-process.outputs.should_process == 'true'

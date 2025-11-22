@@ -87,6 +87,16 @@ jobs:
             echo "No changes detected"
           fi
 
+      # Read changed files list
+      - name: Read Changed Files
+        if: steps.check.outputs.has_changes == 'true'
+        id: read-changes
+        run: |
+          CHANGED=$(cat changed_files.txt | tr '\n' ' ' | xargs)
+          echo "changed_files<<EOF" >> $GITHUB_OUTPUT
+          cat changed_files.txt
+          echo "EOF" >> $GITHUB_OUTPUT
+
       # Generate documentation and create individual PRs
       # The action handles everything: doc generation, PR checking, and PR creation
       - name: Generate Documentation and Create PRs
@@ -100,6 +110,7 @@ jobs:
           create_individual_prs: 'true'
           prevent_duplicate_prs: 'true'
           pr_branch_prefix: 'doc-bot'
+          changed_files: ${{ steps.read-changes.outputs.changed_files }}
           process_changed_only: 'false'  # We already filtered via detect_yaml_changes.py
 
       # Sync generated docs to destination paths
