@@ -98,9 +98,8 @@ jobs:
             echo "EOF"
           } >> $GITHUB_OUTPUT
 
-      # Generate documentation and create individual PRs
-      # The action handles everything: doc generation, PR checking, and PR creation
-      - name: Generate Documentation and Create PRs
+      # Generate documentation (action only generates, does not create PRs)
+      - name: Generate Documentation
         if: steps.check.outputs.has_changes == 'true'
         uses: DomoApps/documentation-generator-action@main
         with:
@@ -118,27 +117,30 @@ jobs:
           completeness_threshold: '90'  # Quality score threshold (0-100)
           timeout_minutes: '30'  # Max processing time
 
-          # PR Configuration
-          create_pull_request: 'true'
-          create_individual_prs: 'true'  # Create one PR per file
-          prevent_duplicate_prs: 'true'  # Skip files with existing bot PRs
-          pr_branch_prefix: 'doc-bot'  # Branch naming: doc-bot/filename
-          base_branch: 'master'  # or 'main' depending on your repo
-
           # Change Detection
           changed_files: ${{ steps.read-changes.outputs.changed_files }}
           process_changed_only: 'false'  # We already filtered via detect_yaml_changes.py
 
-      # Sync generated docs to destination paths
-      # Note: This step is skipped when using individual PRs since docs are committed on each branch
-      - name: Sync to Destination
-        if: steps.check.outputs.has_changes == 'true' && hashFiles('./temp-docs/*.md') != ''
+          # PR creation disabled - we handle it below with sync
+          create_pull_request: 'false'
+
+      # Create individual PRs with proper file mapping
+      - name: Create Individual PRs with File Sync
+        if: steps.check.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          python .github/scripts/sync_to_destination.py \
-            --generated ./temp-docs \
-            --destination docs/API-Reference/Product-APIs \
-            --mapping .github/doc-mapping.json \
-            --changed-list changed_files.txt
+          python .github/scripts/create_individual_prs.py \
+            --changed-list changed_files.txt \
+            --temp-dir ./temp-docs \
+            --dest-dir docs/API-Reference/Product-APIs \
+            --mapping-file .github/doc-mapping.json \
+            --sync-script .github/scripts/sync_to_destination.py \
+            --base-branch master \
+            --pr-branch-prefix doc-bot \
+            --openai-model gpt-4o \
+            --max-iterations 3 \
+            --completeness-threshold 90
 
       - name: Summary
         if: always()
@@ -155,10 +157,11 @@ jobs:
               done < changed_files.txt
             fi
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### Action Taken:" >> $GITHUB_STEP_SUMMARY
-            echo "- Documentation generated for each changed file" >> $GITHUB_STEP_SUMMARY
-            echo "- Individual PR created per file (if not already exists)" >> $GITHUB_STEP_SUMMARY
-            echo "- Files with existing PRs were skipped" >> $GITHUB_STEP_SUMMARY
+            echo "### Actions Taken:" >> $GITHUB_STEP_SUMMARY
+            echo "- Generated documentation from OpenAPI/YAML specs" >> $GITHUB_STEP_SUMMARY
+            echo "- Applied file mapping configuration to destination paths" >> $GITHUB_STEP_SUMMARY
+            echo "- Created individual PR per file (skipped files with existing open PRs)" >> $GITHUB_STEP_SUMMARY
+            echo "- Committed files to proper destination locations (not temp-docs)" >> $GITHUB_STEP_SUMMARY
           else
             echo "ℹ️ No changes detected - documentation is up to date" >> $GITHUB_STEP_SUMMARY
           fi

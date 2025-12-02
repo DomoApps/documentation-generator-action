@@ -65,22 +65,6 @@ inputs:
     description: 'Name for the PR branch (uses auto-generated name if not provided)'
     required: false
     default: 'docs/update-api-docs'
-  pr_branch_prefix:
-    description: 'Branch name prefix for individual PRs (e.g., "doc-bot" creates branches like "doc-bot/filename")'
-    required: false
-    default: 'doc-bot'
-  create_individual_prs:
-    description: 'Create individual PRs for each changed file instead of one PR for all changes'
-    required: false
-    default: 'false'
-  prevent_duplicate_prs:
-    description: 'Check for existing PRs before creating new ones (only applies when create_individual_prs is true)'
-    required: false
-    default: 'true'
-  base_branch:
-    description: 'Base branch to create PRs from (e.g., master, main)'
-    required: false
-    default: 'master'
 
 outputs:
   documentation_path:
@@ -150,84 +134,10 @@ runs:
           echo "changed_files=" >> $GITHUB_OUTPUT
         fi
 
-    - name: Filter files with existing PRs
-      id: filter-prs
-      if: inputs.create_individual_prs == 'true' && inputs.prevent_duplicate_prs == 'true'
-      shell: bash
-      env:
-        CHANGED_FILES: ${{ inputs.changed_files || steps.changed-yaml.outputs.changed_files }}
-        GH_TOKEN: ${{ github.token }}
-      run: |
-        echo "🔍 Checking for existing PRs..."
-
-        FILES_TO_PROCESS=""
-        SKIPPED_COUNT=0
-        TOTAL_COUNT=0
-
-        if [[ -n "$CHANGED_FILES" ]]; then
-          # Use process substitution to avoid subshell issue
-          while IFS= read -r file; do
-            [[ -z "$file" ]] && continue
-            TOTAL_COUNT=$((TOTAL_COUNT + 1))
-
-            FILE_NAME=$(basename "$file")
-            FILE_BASE="${FILE_NAME%.*}"
-            BRANCH_NAME="${{ inputs.pr_branch_prefix }}/$FILE_BASE"
-
-            # Check if PR already exists for this branch
-            if gh pr list --state open --head "$BRANCH_NAME" --json number,title --jq '.[0].number' 2>/dev/null | grep -q .; then
-              PR_NUM=$(gh pr list --state open --head "$BRANCH_NAME" --json number --jq '.[0].number' 2>/dev/null || echo "unknown")
-              echo "⏭️ Skipping $FILE_NAME (PR #$PR_NUM already exists for branch: $BRANCH_NAME)"
-              SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
-            else
-              echo "✅ Will process $FILE_NAME (no existing PR for branch: $BRANCH_NAME)"
-              FILES_TO_PROCESS="${FILES_TO_PROCESS}${file}"$'\n'
-            fi
-          done < <(echo "$CHANGED_FILES")
-        fi
-
-        echo ""
-        echo "Summary: Total=$TOTAL_COUNT, Skipped=$SKIPPED_COUNT, ToProcess=$((TOTAL_COUNT - SKIPPED_COUNT))"
-
-        # Remove trailing newline
-        FILES_TO_PROCESS=$(echo "$FILES_TO_PROCESS" | sed '/^$/d')
-
-        if [[ -z "$FILES_TO_PROCESS" ]]; then
-          echo "⚠️ All files already have open PRs, nothing to process"
-          echo "files_to_process=" >> $GITHUB_OUTPUT
-          echo "has_files_to_process=false" >> $GITHUB_OUTPUT
-          echo "skipped_count=$SKIPPED_COUNT" >> $GITHUB_OUTPUT
-        else
-          echo "📝 Files to process:"
-          echo "$FILES_TO_PROCESS" | sed 's/^/  - /'
-
-          echo "files_to_process<<EOF" >> $GITHUB_OUTPUT
-          echo "$FILES_TO_PROCESS" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-          echo "has_files_to_process=true" >> $GITHUB_OUTPUT
-          echo "skipped_count=$SKIPPED_COUNT" >> $GITHUB_OUTPUT
-        fi
-
     - name: Check if processing needed
       id: should-process
       shell: bash
       run: |
-        # Determine if we should continue processing
-        if [[ "${{ inputs.create_individual_prs }}" == "true" && "${{ inputs.prevent_duplicate_prs }}" == "true" ]]; then
-          # For individual PRs with duplicate prevention, check if any files need processing
-          if [[ "${{ steps.filter-prs.outputs.has_files_to_process }}" != "true" ]]; then
-            echo "ℹ️ All files have existing PRs, no processing needed"
-            echo "## ℹ️ No Processing Needed" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "All changed files already have open pull requests." >> $GITHUB_STEP_SUMMARY
-            echo "Skipped ${{ steps.filter-prs.outputs.skipped_count }} file(s) with existing PRs." >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Action taken:** Workflow completed successfully without generating new documentation." >> $GITHUB_STEP_SUMMARY
-            echo "should_process=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-        fi
-
         # Check if there are any changes to process
         # Use external changed_files input if provided, otherwise check internal detection
         if [[ -n "${{ inputs.changed_files }}" ]]; then
@@ -281,7 +191,7 @@ runs:
         fi
 
     - name: Generate Documentation
-      if: steps.should-process.outputs.should_process == 'true' && inputs.create_individual_prs != 'true'
+      if: steps.should-process.outputs.should_process == 'true'
       id: generate
       shell: bash
       env:
@@ -294,17 +204,13 @@ runs:
         COMPLETENESS_THRESHOLD: ${{ inputs.completeness_threshold }}
         TIMEOUT_MINUTES: ${{ inputs.timeout_minutes }}
         PROCESS_CHANGED_ONLY: ${{ inputs.process_changed_only }}
-        CHANGED_FILES: ${{ inputs.create_individual_prs == 'true' && steps.filter-prs.outputs.files_to_process || steps.changed-yaml.outputs.changed_files }}
+        CHANGED_FILES: ${{ inputs.changed_files || steps.changed-yaml.outputs.changed_files }}
       run: |
         echo "🚀 Starting documentation generation..."
         echo "📁 Input: ${{ inputs.yaml_input_path }}"
         echo "📄 Output: ${{ inputs.output_path }}"
         echo "🎨 Template: $TEMPLATE_PATH"
         echo "🤖 AI Model: ${{ inputs.openai_model }}"
-
-        if [[ "${{ inputs.create_individual_prs }}" == "true" && "${{ steps.filter-prs.outputs.skipped_count }}" != "0" ]]; then
-          echo "⏭️ Skipped ${{ steps.filter-prs.outputs.skipped_count }} file(s) with existing PRs"
-        fi
 
         # Run the documentation generator
         python "${{ github.action_path }}/src/doc_generator_main.py"
@@ -316,173 +222,8 @@ runs:
 
         echo "✅ Generated $FILES_COUNT markdown file(s)"
 
-    - name: Create Individual Pull Requests
-      id: create-individual-prs
-      if: inputs.create_pull_request == 'true' && inputs.create_individual_prs == 'true' && steps.should-process.outputs.should_process == 'true'
-      shell: bash
-      env:
-        FILES_TO_PROCESS: ${{ steps.filter-prs.outputs.files_to_process }}
-        GH_TOKEN: ${{ github.token }}
-        OPENAI_API_KEY: ${{ inputs.openai_api_key }}
-        OPENAI_MODEL: ${{ inputs.openai_model }}
-        TEMPLATE_PATH: ${{ env.TEMPLATE_PATH }}
-        MAX_ITERATIONS: ${{ inputs.max_iterations }}
-        COMPLETENESS_THRESHOLD: ${{ inputs.completeness_threshold }}
-        TIMEOUT_MINUTES: ${{ inputs.timeout_minutes }}
-      run: |
-        echo "📄 Creating individual PRs (one file at a time)..."
-
-        PROCESSED=0
-        FAILED=0
-        BASE_BRANCH="${{ inputs.base_branch }}"
-        OUTPUT_DIR="${{ inputs.output_path }}"
-        PR_URLS=""
-
-        if [[ -n "$FILES_TO_PROCESS" ]]; then
-          while IFS= read -r file; do
-            [[ -z "$file" ]] && continue
-
-            FILE_NAME=$(basename "$file")
-            FILE_BASE="${FILE_NAME%.*}"
-            BRANCH_NAME="${{ inputs.pr_branch_prefix }}/$FILE_BASE"
-            MD_FILE="${OUTPUT_DIR}/${FILE_BASE}.md"
-
-            echo "---"
-            echo "Processing: $FILE_NAME"
-            echo "Branch: $BRANCH_NAME"
-
-            # Create/checkout branch first
-            git fetch origin 2>/dev/null || true
-
-            # Ensure we're on the base branch
-            git checkout "$BASE_BRANCH" 2>/dev/null || true
-
-            # Check if branch exists remotely
-            if git ls-remote --heads origin "$BRANCH_NAME" | grep -q "$BRANCH_NAME"; then
-              echo "Branch exists remotely, checking out..."
-              git checkout "$BRANCH_NAME" 2>/dev/null || git checkout -b "$BRANCH_NAME" "origin/$BRANCH_NAME"
-              git pull origin "$BRANCH_NAME" || true
-            else
-              echo "Creating new branch..."
-              git checkout -b "$BRANCH_NAME" || {
-                echo "❌ Failed to create branch $BRANCH_NAME"
-                FAILED=$((FAILED + 1))
-                continue
-              }
-            fi
-
-            # Now generate documentation for THIS file only on THIS branch
-            echo "Generating documentation for $FILE_NAME..."
-            mkdir -p "$OUTPUT_DIR"
-
-            # Run the doc generator for this single file using changed_files mechanism
-            CHANGED_FILES="$file" \
-            MARKDOWN_OUTPUT_PATH="$OUTPUT_DIR" \
-            PROCESS_CHANGED_ONLY="true" \
-            python "${{ github.action_path }}/src/doc_generator_main.py" || {
-              echo "❌ Documentation generation failed for $FILE_NAME"
-              git checkout "$BASE_BRANCH" 2>/dev/null || true
-              FAILED=$((FAILED + 1))
-              continue
-            }
-
-            # Check if file was generated
-            if [[ ! -f "$MD_FILE" ]]; then
-              echo "❌ Generated file not found: $MD_FILE"
-              git checkout "$BASE_BRANCH" 2>/dev/null || true
-              FAILED=$((FAILED + 1))
-              continue
-            fi
-
-            # Stage changes
-            git add "$MD_FILE"
-
-            # Check if there are changes to commit
-            if [[ -z $(git diff --cached --name-only) ]]; then
-              echo "ℹ️ No changes to commit for $FILE_NAME"
-              git checkout "$BASE_BRANCH" 2>/dev/null || true
-              continue
-            fi
-
-            # Commit
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-
-            if ! git commit -m "📚 Update documentation for $FILE_NAME" -m "Auto-generated from YAML specification" -m "Source: $file"; then
-              echo "⚠️ Commit failed for $FILE_NAME"
-              git checkout "$BASE_BRANCH" 2>/dev/null || true
-              FAILED=$((FAILED + 1))
-              continue
-            fi
-
-            # Push
-            if ! git push -f origin "$BRANCH_NAME"; then
-              echo "❌ Push failed for $FILE_NAME"
-              git checkout "$BASE_BRANCH" 2>/dev/null || true
-              FAILED=$((FAILED + 1))
-              continue
-            fi
-
-            # Create or update PR (only if there's an OPEN PR)
-            PR_STATE=$(gh pr view "$BRANCH_NAME" --json state --jq '.state' 2>/dev/null || echo "")
-            if [[ "$PR_STATE" == "OPEN" ]]; then
-              PR_URL=$(gh pr view "$BRANCH_NAME" --json url --jq '.url')
-              echo "✅ Updated existing PR for $FILE_NAME: $PR_URL"
-              PR_URLS="${PR_URLS}${FILE_NAME}|${PR_URL}"$'\n'
-              PROCESSED=$((PROCESSED + 1))
-            else
-              PR_URL=$(gh pr create \
-                --title "📚 Update documentation for $FILE_NAME" \
-                --body "## 🤖 Auto-Generated Documentation Update
-
-        This PR contains automatically generated documentation for a single file.
-
-        ### 📊 File Details
-        - **Source File:** \`$file\`
-        - **Generated File:** \`$MD_FILE\`
-        - **AI Model Used:** ${{ inputs.openai_model }}
-
-        ### 🔄 Process Details
-        - **Max Iterations:** ${{ inputs.max_iterations }}
-        - **Quality Threshold:** ${{ inputs.completeness_threshold }}%
-
-        ---
-        🤖 This PR was created automatically by the YAML to Markdown Documentation Generator.
-
-        Please review the generated documentation before merging." \
-                --assignee "${{ github.actor }}" \
-                --head "$BRANCH_NAME" \
-                --base "$BASE_BRANCH" 2>&1)
-
-              if [[ $PR_URL == https://* ]]; then
-                echo "✅ Created PR for $FILE_NAME: $PR_URL"
-                PR_URLS="${PR_URLS}${FILE_NAME}|${PR_URL}"$'\n'
-                PROCESSED=$((PROCESSED + 1))
-              else
-                echo "⚠️ PR creation failed for $FILE_NAME"
-                FAILED=$((FAILED + 1))
-              fi
-            fi
-
-            # Return to base branch
-            git checkout "$BASE_BRANCH" 2>/dev/null || true
-          done < <(echo "$FILES_TO_PROCESS")
-
-          echo ""
-          echo "📊 Individual PR Summary:"
-          echo "- Processed: $PROCESSED"
-          echo "- Failed: $FAILED"
-
-          # Save PR URLs to output for summary step
-          echo "PR_URLS<<EOF" >> $GITHUB_OUTPUT
-          echo "$PR_URLS" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-        else
-          echo "⚠️ No files to process"
-        fi
-
-    - name: Create Single Pull Request
-      if: inputs.create_pull_request == 'true' && inputs.create_individual_prs != 'true' && steps.should-process.outputs.should_process == 'true'
+    - name: Create Pull Request
+      if: inputs.create_pull_request == 'true' && steps.should-process.outputs.should_process == 'true'
       uses: peter-evans/create-pull-request@v5
       with:
         token: ${{ github.token }}
@@ -527,20 +268,7 @@ runs:
         echo "- **Template:** ${{ env.TEMPLATE_PATH }}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
-        if [ "${{ inputs.create_individual_prs }}" == "true" ]; then
-          echo "### 🌿 Individual Pull Requests" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          PR_URLS="${{ steps.create-individual-prs.outputs.PR_URLS }}"
-          if [[ -n "$PR_URLS" ]]; then
-            while IFS='|' read -r filename url; do
-              [[ -z "$filename" ]] && continue
-              echo "- **$filename**: $url" >> $GITHUB_STEP_SUMMARY
-            done <<< "$PR_URLS"
-          else
-            echo "- No PRs created" >> $GITHUB_STEP_SUMMARY
-          fi
-        elif [ "${{ inputs.create_pull_request }}" == "true" ]; then
+        if [ "${{ inputs.create_pull_request }}" == "true" ]; then
           echo "### 🌿 Pull Request Created" >> $GITHUB_STEP_SUMMARY
           echo "- **Branch:** Auto-generated with timestamp" >> $GITHUB_STEP_SUMMARY
           echo "- **Assignee:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY

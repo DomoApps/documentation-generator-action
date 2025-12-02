@@ -78,7 +78,8 @@ The destination repository needs these files (example templates available in thi
 │   └── sync-api-docs.yml           # Main sync workflow
 ├── scripts/
 │   ├── detect_yaml_changes.py      # Detects changed files
-│   └── sync_to_destination.py      # Syncs to destination
+│   ├── sync_to_destination.py      # Maps files to destinations
+│   └── create_individual_prs.py    # Creates individual PRs with file mapping
 └── doc-mapping.json                 # File mapping configuration
 ```
 
@@ -90,7 +91,7 @@ mkdir -p .github/workflows .github/scripts
 
 # Copy from documentation-generator-action repo
 cp examples/destination-repo/workflows/sync-api-docs.yml .github/workflows/
-cp examples/destination-repo/scripts/*.py .github/scripts/
+cp examples/destination-repo/.github/scripts/*.py .github/scripts/
 cp examples/destination-repo/doc-mapping.json .github/
 ```
 
