@@ -128,7 +128,7 @@ jobs:
       - name: Create Individual PRs with File Sync
         if: steps.check.outputs.has_changes == 'true'
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           python .github/scripts/create_individual_prs.py \
             --changed-list changed_files.txt \
@@ -140,7 +140,8 @@ jobs:
             --pr-branch-prefix doc-bot \
             --openai-model gpt-4o \
             --max-iterations 3 \
-            --completeness-threshold 90
+            --completeness-threshold 90 \
+            --repo DomoApps/domo-developer-portal
 
       - name: Summary
         if: always()

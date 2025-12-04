@@ -36,7 +36,8 @@ class PRCreator:
         pr_branch_prefix: str = "doc-bot",
         openai_model: str = "gpt-4o",
         max_iterations: str = "3",
-        completeness_threshold: str = "90"
+        completeness_threshold: str = "90",
+        repo: str = None
     ):
         self.changed_files_list = changed_files_list
         self.temp_dir = temp_dir
@@ -48,6 +49,7 @@ class PRCreator:
         self.openai_model = openai_model
         self.max_iterations = max_iterations
         self.completeness_threshold = completeness_threshold
+        self.repo = repo
 
         self.processed = 0
         self.failed = 0
@@ -99,21 +101,35 @@ class PRCreator:
             # Fetch latest
             self.git_command(["fetch", "origin"], check=False)
 
-            # Checkout base branch
-            self.git_command(["checkout", self.base_branch], check=False)
+            # Checkout base branch first (force to overwrite any conflicts)
+            print(f"Returning to base branch...")
+            self.git_command(["checkout", "-f", self.base_branch], check=False)
+
+            # Check if branch exists locally
+            local_branches = self.git_command(["branch", "--list", branch_name], check=False)
+            branch_exists_locally = branch_name in local_branches.stdout
 
             # Check if branch exists remotely
             result = self.git_command([
                 "ls-remote", "--heads", "origin", branch_name
             ], check=False)
+            branch_exists_remotely = bool(result.stdout.strip())
 
-            if result.stdout.strip():
+            if branch_exists_remotely:
                 # Branch exists remotely
-                print(f"Checking out existing branch: {branch_name}")
-                self.git_command(["checkout", branch_name], check=False)
-                self.git_command(["pull", "origin", branch_name], check=False)
+                print(f"Branch exists remotely: {branch_name}")
+
+                if branch_exists_locally:
+                    # Delete local branch to avoid conflicts
+                    print(f"Deleting local branch to refresh from remote...")
+                    self.git_command(["branch", "-D", branch_name], check=False)
+
+                # Checkout from remote with tracking (force to overwrite conflicts)
+                print(f"Checking out from remote with tracking...")
+                self.git_command(["checkout", "-f", "-b", branch_name, f"origin/{branch_name}"])
+
             else:
-                # Create new branch
+                # Create new branch from base
                 print(f"Creating new branch: {branch_name}")
                 self.git_command(["checkout", "-b", branch_name])
 
@@ -226,13 +242,19 @@ This PR contains automatically generated documentation for a single API spec.
 
 Please review the generated documentation before merging."""
 
-            result = self.gh_command([
+            cmd = [
                 "pr", "create",
                 "--title", f"📚 Update documentation for {file_name}",
                 "--body", pr_body,
                 "--head", branch_name,
                 "--base", self.base_branch
-            ], check=False)
+            ]
+
+            # Add repo flag if specified
+            if self.repo:
+                cmd.extend(["--repo", self.repo])
+
+            result = self.gh_command(cmd, check=False)
 
             if result.returncode == 0 and result.stdout.strip().startswith("https://"):
                 return result.stdout.strip()
@@ -403,6 +425,11 @@ def main():
         default='90',
         help='Completeness threshold used (for PR description)'
     )
+    parser.add_argument(
+        '--repo',
+        default=None,
+        help='GitHub repository in owner/repo format (e.g., DomoApps/domo-developer-portal)'
+    )
 
     args = parser.parse_args()
 
@@ -416,7 +443,8 @@ def main():
         pr_branch_prefix=args.pr_branch_prefix,
         openai_model=args.openai_model,
         max_iterations=args.max_iterations,
-        completeness_threshold=args.completeness_threshold
+        completeness_threshold=args.completeness_threshold,
+        repo=args.repo
     )
 
     results = creator.process_all_files()
