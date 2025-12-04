@@ -47,6 +47,7 @@ class DocGenerator(AiBot):
 
         # Parse OpenAPI spec deterministically
         parser = OpenAPIParser(yaml_path)
+        self._parser = parser  # Store for $ref resolution in other methods
         api_info = parser.get_api_info()
         endpoints = parser.parse_all_endpoints()
 
@@ -225,7 +226,9 @@ class DocGenerator(AiBot):
             ),
             # Examples
             "REQUEST_BODY_EXAMPLE": request_example or "N/A",
+            "PYTHON_REQUEST_BODY": self._convert_json_to_python_dict(request_example) if request_example else "{}",
             "RESPONSE_EXAMPLE": response_example or "{}",
+            "RESPONSE_FIELD_DESCRIPTIONS": self._generate_response_field_descriptions(endpoint),
             "SUCCESS_STATUS_CODE": endpoint.success_status_code or "200",
             # Additional sections
             "ERROR_RESPONSES": error_responses,
@@ -252,12 +255,16 @@ CRITICAL INSTRUCTIONS:
    - DO NOT create new markdown heading sections (###, ####, etc.)
    - If you need to add structure to long descriptions, use **bold text** for subsection titles, NOT headings
 7. For code examples (JavaScript, Python, cURL):
+   - JAVASCRIPT: MUST use browser fetch() API (NOT axios, NOT require(), NOT Node.js libraries)
+   - PYTHON: Use requests library
    - Generate realistic, working examples
    - Use the actual HTTP_METHOD and ENDPOINT_PATH
    - Include the REQUEST_BODY_EXAMPLE in the request if it exists
    - Show the RESPONSE_EXAMPLE as the expected response
    - Use consistent URLs across all examples (e.g., always use the same base URL pattern)
-7. For response documentation:
+8. For {{{{PYTHON_REQUEST_BODY}}}}: Use the value as-is (already in Python dict format from pprint)
+9. For {{{{RESPONSE_FIELD_DESCRIPTIONS}}}}: Use the value as-is (already formatted as markdown list with nested fields)
+10. For response documentation:
    - If the response example contains fields, briefly describe what each field represents
    - Focus on documenting the fields that ARE present in the response example
    - DO NOT invent additional response fields or error structures not in the spec
@@ -336,6 +343,75 @@ Generate the documentation now:
             table += f"| `{code}` | {description} |\n"
 
         return table
+
+    def _convert_json_to_python_dict(self, json_example: str) -> str:
+        """Convert JSON string to Python dict literal format using pprint"""
+        if not json_example or json_example == "N/A":
+            return "{}"
+
+        try:
+            # Parse JSON
+            obj = json.loads(json_example)
+
+            # Convert to Python dict format using pprint
+            import pprint
+            return pprint.pformat(obj, width=80, compact=False)
+        except (json.JSONDecodeError, TypeError) as e:
+            # Fallback: return as-is if parsing fails
+            Log.print_red(f"Failed to convert JSON to Python dict: {e}")
+            return json_example
+
+    def _generate_response_field_descriptions(self, endpoint: 'EndpointData') -> str:
+        """Generate markdown descriptions for response fields (recursive for nested objects)"""
+        # Get the success response schema
+        success_status = endpoint.success_status_code or "200"
+        if success_status not in endpoint.responses:
+            return ""
+
+        response_schema = endpoint.responses[success_status].get("schema", {})
+
+        # Resolve $ref if present (parser might not have resolved it)
+        if "$ref" in response_schema:
+            ref_path = response_schema["$ref"]
+            # Use the parser's resolve method if available
+            if hasattr(self, '_parser') and self._parser:
+                response_schema = self._parser._resolve_ref(ref_path)
+            else:
+                # Can't resolve, return empty
+                Log.print_red(f"Warning: Unable to resolve $ref in response schema: {ref_path}")
+                return ""
+        properties = response_schema.get("properties", {})
+
+        if not properties:
+            return ""
+
+        # Build markdown list of field descriptions recursively
+        def _build_field_list(props: dict, indent_level: int = 0) -> list:
+            descriptions = []
+            indent = "  " * indent_level  # 2 spaces per level
+
+            for field_name, field_schema in props.items():
+                field_type = field_schema.get("type", "any")
+                field_desc = field_schema.get("description", "")
+
+                # Build the description line
+                if field_desc:
+                    desc_line = f"{indent}- **{field_name}**: {field_desc}"
+                else:
+                    desc_line = f"{indent}- **{field_name}**: {field_type}"
+
+                descriptions.append(desc_line)
+
+                # Recursively handle nested objects
+                if field_type == "object" and "properties" in field_schema:
+                    nested_props = field_schema.get("properties", {})
+                    nested_descriptions = _build_field_list(nested_props, indent_level + 1)
+                    descriptions.extend(nested_descriptions)
+
+            return descriptions
+
+        field_list = _build_field_list(properties)
+        return "\n".join(field_list) if field_list else ""
 
     def _generate_nested_object_tables(
         self, parameters: list, parser, processed_schemas: set = None

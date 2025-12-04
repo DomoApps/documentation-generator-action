@@ -396,11 +396,15 @@ class OpenAPIParser:
                 "status_code": status_code,
                 "description": description,
                 "examples": [],
+                "schema": {},  # Will be populated if schema exists
             }
 
             for media_type, media_obj in content.items():
                 schema = media_obj.get("schema", {})
                 if schema:
+                    # Store the schema for response field descriptions
+                    response_data["schema"] = schema
+
                     # Get examples
                     examples = media_obj.get("examples", {})
                     if examples:

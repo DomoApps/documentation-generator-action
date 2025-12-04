@@ -1,7 +1,7 @@
 ## {{SUMMARY}}
 
-**Method:** `{{METHOD}}`
-**Endpoint:** `{{PATH}}`
+**Method:** `{{HTTP_METHOD}}`
+**Endpoint:** `{{ENDPOINT_PATH}}`
 
 {{DESCRIPTION}}
 
@@ -29,14 +29,16 @@ title: JavaScript
 -->
 
 ```javascript
-// Generate a realistic fetch/axios example using the request body example
-// Use the actual endpoint path with any path parameters filled in
-// Include proper headers (Content-Type: application/json if body exists)
-{
-  {
-    JAVASCRIPT_REQUEST_EXAMPLE;
-  }
-}
+fetch('https://<instance>.domo.com{{ENDPOINT_PATH}}', {
+  method: '{{HTTP_METHOD}}',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({{REQUEST_BODY_EXAMPLE}})
+})
+.then(response => response.json())
+.then(data => console.log(data))
+.catch(error => console.error('Error:', error));
 ```
 
 <!--
@@ -45,10 +47,16 @@ title: Python
 -->
 
 ```python
-# Generate a realistic requests example using the request body example
-# Use the actual endpoint path with any path parameters filled in
-# Include proper headers if needed
-{{PYTHON_REQUEST_EXAMPLE}}
+import requests
+
+url = "https://<instance>.domo.com{{ENDPOINT_PATH}}"
+headers = {
+    "Content-Type": "application/json"
+}
+data = {{PYTHON_REQUEST_BODY}}
+
+response = requests.post(url, headers=headers, json=data)
+print(response.json())
 ```
 
 <!--
@@ -57,10 +65,9 @@ title: cURL
 -->
 
 ```bash
-# Generate a realistic cURL command
-# Use the actual endpoint path
-# Include -H headers and -d data as appropriate
-{{CURL_REQUEST_EXAMPLE}}
+curl -X {{HTTP_METHOD}} "https://<instance>.domo.com{{ENDPOINT_PATH}}" \
+  -H "Content-Type: application/json" \
+  -d '{{REQUEST_BODY_EXAMPLE}}'
 ```
 
 <!-- type: tab-end -->
@@ -72,6 +79,8 @@ title: cURL
 ```json
 {{RESPONSE_EXAMPLE}}
 ```
+
+{{RESPONSE_FIELD_DESCRIPTIONS}}
 
 ### Error Responses
 
