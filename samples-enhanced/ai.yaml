@@ -1,24 +1,28 @@
 openapi: 3.1.0
 info:
   title: 'AI Services'
-  description: 'The AI Services API provides tools for text summarization, SQL generation, creative text generation, and image-to-text capabilities. It also supports advanced functions like chat messaging, tool integrations, and embedding generation.'
+  description: 'The AI Services API offers a range of AI-driven features, including text summarization, SQL transformation, natural language understanding, image recognition, and more. It''s engineered to seamlessly integrate sophisticated AI capabilities into diverse applications.'
   version: '2.2.3225_master'
 servers:
-  - url: https://{subdomain}.domo.com
+- url: https://{subdomain}.domo.com
+  variables:
+    subdomain:
+      default: your-instance
+      description: Your subdomain
 tags:
-  - name: AI Services - Embedding
-    description: Domo AI Service Embedding APIs
-  - name: AI Services - Image
-    description: Domo AI Service Image APIs
-  - name: AI Services - Messages
-    description: Domo AI Service Messages APIs
-  - name: AI Services - Text
-    description: Domo AI Service Text APIs
+- name: AI Services - Embedding
+  description: Domo AI Service Embedding APIs
+- name: AI Services - Image
+  description: Domo AI Service Image APIs
+- name: AI Services - Messages
+  description: Domo AI Service Messages APIs
+- name: AI Services - Text
+  description: Domo AI Service Text APIs
 paths:
   /api/ai/v1/text/summarize:
     post:
       tags:
-        - AI Services - Text
+      - AI Services - Text
       summary: Text Summarization
       description: Generate a summary based on the given text input.
       operationId: summarize
@@ -32,11 +36,11 @@ paths:
               Basic:
                 description: Basic Text Summarization request.
                 value:
-                  input: 'San Francisco, officially the City and County of San Francisco, is a commercial, financial, and cultural center in Northern California. With a population of 808,437 residents as of 2022, San Francisco is the fourth most populous city in the U.S. state of California. The city covers a land area of 46.9 square miles (121 square kilometers) at the end of the San Francisco Peninsula, making it the second-most densely populated large U.S. city after New York City and the fifth-most densely populated U.S. county, behind only four New York City boroughs. Among the 92 U.S. cities proper with over 250,000 residents, San Francisco is ranked first by per capita income and sixth by aggregate income as of 2022.'
+                  input: "San Francisco, officially the City and County of San Francisco, is a commercial, financial, and cultural center in Northern California. With a population of 808,437 residents as of 2022, San Francisco is the fourth most populous city in the U.S. state of California. The city covers a land area of 46.9 square miles (121 square kilometers) at the end of the San Francisco Peninsula, making it the second-most densely populated large U.S. city after New York City and the fifth-most densely populated U.S. county, behind only four New York City boroughs. Among the 92 U.S. cities proper with over 250,000 residents, San Francisco is ranked first by per capita income and sixth by aggregate income as of 2022."
               Custom Response Length:
                 description: Text Summarization request with custom response length.
                 value:
-                  input: 'San Francisco, officially the City and County of San Francisco, is a commercial, financial, and cultural center in Northern California. With a population of 808,437 residents as of 2022, San Francisco is the fourth most populous city in the U.S. state of California. The city covers a land area of 46.9 square miles (121 square kilometers) at the end of the San Francisco Peninsula, making it the second-most densely populated large U.S. city after New York City and the fifth-most densely populated U.S. county, behind only four New York City boroughs. Among the 92 U.S. cities proper with over 250,000 residents, San Francisco is ranked first by per capita income and sixth by aggregate income as of 2022.'
+                  input: "San Francisco, officially the City and County of San Francisco, is a commercial, financial, and cultural center in Northern California. With a population of 808,437 residents as of 2022, San Francisco is the fourth most populous city in the U.S. state of California. The city covers a land area of 46.9 square miles (121 square kilometers) at the end of the San Francisco Peninsula, making it the second-most densely populated large U.S. city after New York City and the fifth-most densely populated U.S. county, behind only four New York City boroughs. Among the 92 U.S. cities proper with over 250,000 residents, San Francisco is ranked first by per capita income and sixth by aggregate income as of 2022."
                   outputWordLength:
                     min: 5
                     max: 10
@@ -60,20 +64,20 @@ paths:
                 Text Summarization Response:
                   description: Text Summarization Response
                   value:
-                    prompt: 'Write a 5 to 10 words summary of the following text. ```...``` CONCISE SUMMARY:'
-                    output: 'Vibrant, densely populated commercial and cultural hub in Northern California.'
+                    prompt: "Write a 5 to 10 words summary of the following text. ```...``` CONCISE SUMMARY:"
+                    output: "Vibrant, densely populated commercial and cultural hub in Northern California."
                     modelId: domo.domo_ai.domogpt-summarize-v1:anthropic
       security:
-        - domo-developer-token: []
+      - domo-developer-token: []
       parameters:
         outputWordLength:
-          description: Specifies the desired target word length for the summarized text, allowing customization of summary size.
+          description: Sets a target word count for the summary, providing flexibility in the summary's length.
         reasoningConfig:
-          description: Configures the reasoning depth and strategy for the text summarization process, with expected values being key-value pairs that specify different reasoning aspects.
+          description: Allows customization of the summarization process through an object with adjustable logic settings.
   /api/ai/v1/text/sql:
     post:
       tags:
-        - AI Services - Text
+      - AI Services - Text
       summary: Text-to-SQL
       description: Generate a SQL query based on the given text input and data source schema.
       operationId: textToSQL
@@ -89,36 +93,36 @@ paths:
                 value:
                   input: What are my total sales by region?
                   dataSourceSchemas:
-                    - dataSourceName: Store Sales
-                      columns:
-                        - type: STRING
-                          name: product
-                        - type: LONG
-                          name: store
-                        - type: LONG
-                          name: amount
-                        - type: DATETIME
-                          name: timestamp'
-                        - type: STRING
-                          name: region
+                  - dataSourceName: Store Sales
+                    columns:
+                    - type: STRING
+                      name: product
+                    - type: LONG
+                      name: store
+                    - type: LONG
+                      name: amount
+                    - type: DATETIME
+                      name: timestamp'
+                    - type: STRING
+                      name: region
               Non-default model:
                 description: Text-to-SQL request with non-default model.
                 value:
                   input: What are my total sales by region?
                   model: 9f35cc70-47f0-46da-a3e9-92a76c574e41
                   dataSourceSchemas:
-                    - dataSourceName: Store Sales
-                      columns:
-                        - type: STRING
-                          name: product
-                        - type: LONG
-                          name: store
-                        - type: LONG
-                          name: amount
-                        - type: DATETIME
-                          name: timestamp'
-                        - type: STRING
-                          name: region
+                  - dataSourceName: Store Sales
+                    columns:
+                    - type: STRING
+                      name: product
+                    - type: LONG
+                      name: store
+                    - type: LONG
+                      name: amount
+                    - type: DATETIME
+                      name: timestamp'
+                    - type: STRING
+                      name: region
         required: true
       responses:
         '409':
@@ -144,7 +148,7 @@ paths:
                       [{"dataSourceName":"Store_Sales","columns":[{"name":"product","type":"STRING"},{"name":"store","type":"LONG"},{"name":"amount","type":"LONG"},{"name":"timestamp","type":"DATETIME"},{"name":"region","type":"STRING"}]}]
                       # Generate a query to answer the following:
                       # What are my total sales by region?
-                    output: 'SELECT region, SUM(amount) AS total_sales FROM `Store Sales` GROUP BY region'
+                    output: "SELECT region, SUM(amount) AS total_sales FROM `Store Sales` GROUP BY region"
                     modelId: domo.domo_ai.domogpt-medium-v1.2:anthropic
         '400':
           description: Invalid property in request
@@ -153,14 +157,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/TextAIResponse'
       security:
-        - domo-developer-token: []
+      - domo-developer-token: []
       parameters:
         reasoningConfig:
-          description: The reasoningConfig parameter specifies optional configurations for adjusting the reasoning process of the text-to-SQL translation, such as logic mode or verbosity, using a structured JSON object.
+          description: Enables customization of the AI model's logic during text-to-SQL conversion through adjustable settings.
   /api/ai/v1/text/generation:
     post:
       tags:
-        - AI Services - Text
+      - AI Services - Text
       summary: Text Generation
       description: Generate text based on the given text input.
       operationId: textGeneration
@@ -212,14 +216,14 @@ paths:
                     output: The sky is blue because of Rayleigh scattering.
                     modelId: domo.domo_ai.domogpt-small-v1:anthropic
       security:
-        - domo-developer-token: []
+      - domo-developer-token: []
       parameters:
         reasoningConfig:
-          description: Specifies configuration options for the AI's reasoning process, accepting an object with predefined key-value pairs to tailor text generation behavior.
+          description: Customizes text generation behavior through parameters like depth and complexity.
   /api/ai/v1/text/beastmode:
     post:
       tags:
-        - AI Services - Text
+      - AI Services - Text
       summary: Text-to-BeastMode
       description: Generate a Beast Mode calculation based on the given text input and data source schema.
       operationId: textToBeastMode
@@ -237,16 +241,16 @@ paths:
                   dataSourceSchema:
                     dataSourceName: Store Sales
                     columns:
-                      - type: STRING
-                        name: product
-                      - type: LONG
-                        name: store
-                      - type: LONG
-                        name: amount
-                      - type: DATETIME
-                        name: timestamp
-                      - type: STRING
-                        name: region
+                    - type: STRING
+                      name: product
+                    - type: LONG
+                      name: store
+                    - type: LONG
+                      name: amount
+                    - type: DATETIME
+                      name: timestamp
+                    - type: STRING
+                      name: region
               Non-default model:
                 description: Text-to-Beast-Mode request with non-default model.
                 value:
@@ -255,16 +259,16 @@ paths:
                   dataSourceSchema:
                     dataSourceName: Store Sales
                     columns:
-                      - type: STRING
-                        name: product
-                      - type: LONG
-                        name: store
-                      - type: LONG
-                        name: amount
-                      - type: DATETIME
-                        name: timestamp
-                      - type: STRING
-                        name: region
+                    - type: STRING
+                      name: product
+                    - type: LONG
+                      name: store
+                    - type: LONG
+                      name: amount
+                    - type: DATETIME
+                      name: timestamp
+                    - type: STRING
+                      name: region
         required: true
       responses:
         '409':
@@ -293,14 +297,14 @@ paths:
                     output: COUNT(DISTINCT `product`)
                     modelId: domo.domo_ai.domogpt-medium-v1.2:anthropic
       security:
-        - domo-developer-token: []
+      - domo-developer-token: []
       parameters:
         reasoningConfig:
-          description: Configures the reasoning capabilities of the text processing with customizable settings, passed as a key-value pair object.
+          description: Allows configuration of logic and behavior modes using a JSON object with defined parameters.
   /api/ai/v1/messages/tools:
     post:
       tags:
-        - AI Services - Messages
+      - AI Services - Messages
       summary: Tool Calling
       description: Process a tool calling request.
       operationId: toolCalling
@@ -314,275 +318,275 @@ paths:
                 description: Initial tool call request
                 value:
                   input:
-                    - role: USER
-                      content:
-                        - type: TEXT
-                          text: Do you have any blue coats available?
+                  - role: USER
+                    content:
+                    - type: TEXT
+                      text: Do you have any blue coats available?
                   tools:
-                    - name: get_product_recommendations
-                      description: Searches for products matching certain criteria in the database
-                      parameters:
-                        type: object
-                        properties:
-                          categories:
-                            description: categories that could be a match
-                            type: array
-                            items:
-                              type: string
-                              enum:
-                                - coats & jackets
-                                - accessories
-                                - tops
-                                - jeans & trousers
-                                - skirts & dresses
-                                - shoes
-                          colors:
-                            description: 'colors that could be a match, empty array if N/A'
-                            type: array
-                            items:
-                              type: string
-                              enum:
-                                - black
-                                - white
-                                - brown
-                                - red
-                                - blue
-                                - green
-                                - orange
-                                - yellow
-                                - pink
-                                - gold
-                                - silver
-                          keywords:
-                            description: keywords that should be present in the item title or description
-                            type: array
-                            items:
-                              type: string
-                          price_range:
+                  - name: get_product_recommendations
+                    description: Searches for products matching certain criteria in the database
+                    parameters:
+                      type: object
+                      properties:
+                        categories:
+                          description: categories that could be a match
+                          type: array
+                          items:
+                            type: string
+                            enum:
+                            - coats & jackets
+                            - accessories
+                            - tops
+                            - jeans & trousers
+                            - skirts & dresses
+                            - shoes
+                        colors:
+                          description: "colors that could be a match, empty array if N/A"
+                          type: array
+                          items:
+                            type: string
+                            enum:
+                            - black
+                            - white
+                            - brown
+                            - red
+                            - blue
+                            - green
+                            - orange
+                            - yellow
+                            - pink
+                            - gold
+                            - silver
+                        keywords:
+                          description: keywords that should be present in the item title or description
+                          type: array
+                          items:
+                            type: string
+                        price_range:
+                          type: object
+                          properties:
+                            min:
+                              type: number
+                              minimum: 100
+                            max:
+                              type: number
+                              maximum: 200
+                          required:
+                          - min
+                          - max
+                          additionalProperties: false
+                        limit:
+                          type: integer
+                          description: "The maximum number of products to return, use 5 by default if nothing is specified by the user"
+                          const: 100
+                        today:
+                          type: string
+                          format: date-time
+                          description: todays date
+                        email:
+                          type: string
+                          format: email
+                          description: confirmation email
+                        phone:
+                          type: string
+                          description: user phone number
+                        id:
+                          type: string
+                          format: uuid
+                      required:
+                      - categories
+                      - colors
+                      - keywords
+                      - price_range
+                      - limit
+                      - today
+                      - id
+                      additionalProperties: false
+                  - name: get_product_details
+                    description: Fetches more details about a product
+                    parameters:
+                      type: object
+                      properties:
+                        product_id:
+                          type: string
+                          description: The ID of the product to fetch details for
+                      required:
+                      - product_id
+                      additionalProperties: false
+                  - name: add_to_cart
+                    description: Add items to cart when the user has confirmed their interest.
+                    parameters:
+                      type: object
+                      properties:
+                        items:
+                          type: array
+                          items:
                             type: object
                             properties:
-                              min:
-                                type: number
-                                minimum: 100
-                              max:
-                                type: number
-                                maximum: 200
+                              product_id:
+                                type: string
+                                description: ID of the product to add to the cart
+                              quantity:
+                                type: integer
+                                description: Quantity of the product to add to the cart
                             required:
-                              - min
-                              - max
+                            - product_id
+                            - quantity
                             additionalProperties: false
-                          limit:
-                            type: integer
-                            description: 'The maximum number of products to return, use 5 by default if nothing is specified by the user'
-                            const: 100
-                          today:
-                            type: string
-                            format: date-time
-                            description: todays date
-                          email:
-                            type: string
-                            format: email
-                            description: confirmation email
-                          phone:
-                            type: string
-                            description: user phone number
-                          id:
-                            type: string
-                            format: uuid
-                        required:
-                          - categories
-                          - colors
-                          - keywords
-                          - price_range
-                          - limit
-                          - today
-                          - id
-                        additionalProperties: false
-                    - name: get_product_details
-                      description: Fetches more details about a product
-                      parameters:
-                        type: object
-                        properties:
-                          product_id:
-                            type: string
-                            description: The ID of the product to fetch details for
-                        required:
-                          - product_id
-                        additionalProperties: false
-                    - name: add_to_cart
-                      description: Add items to cart when the user has confirmed their interest.
-                      parameters:
-                        type: object
-                        properties:
-                          items:
-                            type: array
-                            items:
-                              type: object
-                              properties:
-                                product_id:
-                                  type: string
-                                  description: ID of the product to add to the cart
-                                quantity:
-                                  type: integer
-                                  description: Quantity of the product to add to the cart
-                              required:
-                                - product_id
-                                - quantity
-                              additionalProperties: false
-                        required:
-                          - items
-                        additionalProperties: false
+                      required:
+                      - items
+                      additionalProperties: false
                   toolChoice:
                     type: AUTO
               Tool Call Next Step Request:
                 description: Tool call after function execution
                 value:
                   input:
-                    - role: USER
+                  - role: USER
+                    content:
+                    - type: TEXT
+                      text: I'm looking for a blue coat.
+                  - role: ASSISTANT
+                    content:
+                    - type: TEXT
+                      text: Certainly! I'd be happy to help you find a blue coat. I'll use the product recommendation tool to search for that.
+                    - type: TOOL_USE_REQUEST
+                      toolInput:
+                        categories:
+                        - coats & jackets
+                        colors:
+                        - blue
+                        keywords:
+                        - coat
+                        price_range:
+                          min: 100.0
+                          max: 200.0
+                        limit: 5
+                        today: 2023-06-14T12:00:00Z
+                        id: 550e8400-e29b-41d4-a716-446655440000
+                      name: get_product_recommendations
+                      toolCallId: toolu_bdrk_01DZtT8tKDafT5P5Du9AuRAL
+                  - role: USER
+                    content:
+                    - type: TOOL_USE_RESULT
                       content:
-                        - type: TEXT
-                          text: I'm looking for a blue coat.
-                    - role: ASSISTANT
-                      content:
-                        - type: TEXT
-                          text: Certainly! I'd be happy to help you find a blue coat. I'll use the product recommendation tool to search for that.
-                        - type: TOOL_USE_REQUEST
-                          toolInput:
-                            categories:
-                              - coats & jackets
-                            colors:
-                              - blue
-                            keywords:
-                              - coat
-                            price_range:
-                              min: 100.0
-                              max: 200.0
-                            limit: 5
-                            today: 2023-06-14T12:00:00Z
-                            id: 550e8400-e29b-41d4-a716-446655440000
-                          name: get_product_recommendations
-                          toolCallId: toolu_bdrk_01DZtT8tKDafT5P5Du9AuRAL
-                    - role: USER
-                      content:
-                        - type: TOOL_USE_RESULT
-                          content:
-                            - type: TEXT
-                              text: "{'productName': 'Wool Blue Coat'}"
-                          toolCallId: toolu_bdrk_01DZtT8tKDafT5P5Du9AuRAL
+                      - type: TEXT
+                        text: "{'productName': 'Wool Blue Coat'}"
+                      toolCallId: toolu_bdrk_01DZtT8tKDafT5P5Du9AuRAL
                   tools:
-                    - name: get_product_recommendations
-                      description: Searches for products matching certain criteria in the database
-                      parameters:
-                        type: object
-                        properties:
-                          categories:
-                            description: categories that could be a match
-                            type: array
-                            items:
-                              type: string
-                              enum:
-                                - coats & jackets
-                                - accessories
-                                - tops
-                                - jeans & trousers
-                                - skirts & dresses
-                                - shoes
-                          colors:
-                            description: 'colors that could be a match, empty array if N/A'
-                            type: array
-                            items:
-                              type: string
-                              enum:
-                                - black
-                                - white
-                                - brown
-                                - red
-                                - blue
-                                - green
-                                - orange
-                                - yellow
-                                - pink
-                                - gold
-                                - silver
-                          keywords:
-                            description: keywords that should be present in the item title or description
-                            type: array
-                            items:
-                              type: string
-                          price_range:
+                  - name: get_product_recommendations
+                    description: Searches for products matching certain criteria in the database
+                    parameters:
+                      type: object
+                      properties:
+                        categories:
+                          description: categories that could be a match
+                          type: array
+                          items:
+                            type: string
+                            enum:
+                            - coats & jackets
+                            - accessories
+                            - tops
+                            - jeans & trousers
+                            - skirts & dresses
+                            - shoes
+                        colors:
+                          description: "colors that could be a match, empty array if N/A"
+                          type: array
+                          items:
+                            type: string
+                            enum:
+                            - black
+                            - white
+                            - brown
+                            - red
+                            - blue
+                            - green
+                            - orange
+                            - yellow
+                            - pink
+                            - gold
+                            - silver
+                        keywords:
+                          description: keywords that should be present in the item title or description
+                          type: array
+                          items:
+                            type: string
+                        price_range:
+                          type: object
+                          properties:
+                            min:
+                              type: number
+                              minimum: 100
+                            max:
+                              type: number
+                              maximum: 200
+                          required:
+                          - min
+                          - max
+                          additionalProperties: false
+                        limit:
+                          type: integer
+                          description: "The maximum number of products to return, use 5 by default if nothing is specified by the user"
+                          const: 100
+                        today:
+                          type: string
+                          format: date-time
+                          description: todays date
+                        email:
+                          type: string
+                          format: email
+                          description: confirmation email
+                        phone:
+                          type: string
+                          description: user phone number
+                        id:
+                          type: string
+                          format: uuid
+                      required:
+                      - categories
+                      - colors
+                      - keywords
+                      - price_range
+                      - limit
+                      - today
+                      - id
+                      additionalProperties: false
+                  - name: get_product_details
+                    description: Fetches more details about a product
+                    parameters:
+                      type: object
+                      properties:
+                        product_id:
+                          type: string
+                          description: The ID of the product to fetch details for
+                      required:
+                      - product_id
+                      additionalProperties: false
+                  - name: add_to_cart
+                    description: Add items to cart when the user has confirmed their interest.
+                    parameters:
+                      type: object
+                      properties:
+                        items:
+                          type: array
+                          items:
                             type: object
                             properties:
-                              min:
-                                type: number
-                                minimum: 100
-                              max:
-                                type: number
-                                maximum: 200
+                              product_id:
+                                type: string
+                                description: ID of the product to add to the cart
+                              quantity:
+                                type: integer
+                                description: Quantity of the product to add to the cart
                             required:
-                              - min
-                              - max
+                            - product_id
+                            - quantity
                             additionalProperties: false
-                          limit:
-                            type: integer
-                            description: 'The maximum number of products to return, use 5 by default if nothing is specified by the user'
-                            const: 100
-                          today:
-                            type: string
-                            format: date-time
-                            description: todays date
-                          email:
-                            type: string
-                            format: email
-                            description: confirmation email
-                          phone:
-                            type: string
-                            description: user phone number
-                          id:
-                            type: string
-                            format: uuid
-                        required:
-                          - categories
-                          - colors
-                          - keywords
-                          - price_range
-                          - limit
-                          - today
-                          - id
-                        additionalProperties: false
-                    - name: get_product_details
-                      description: Fetches more details about a product
-                      parameters:
-                        type: object
-                        properties:
-                          product_id:
-                            type: string
-                            description: The ID of the product to fetch details for
-                        required:
-                          - product_id
-                        additionalProperties: false
-                    - name: add_to_cart
-                      description: Add items to cart when the user has confirmed their interest.
-                      parameters:
-                        type: object
-                        properties:
-                          items:
-                            type: array
-                            items:
-                              type: object
-                              properties:
-                                product_id:
-                                  type: string
-                                  description: ID of the product to add to the cart
-                                quantity:
-                                  type: integer
-                                  description: Quantity of the product to add to the cart
-                              required:
-                                - product_id
-                                - quantity
-                              additionalProperties: false
-                        required:
-                          - items
-                        additionalProperties: false
+                      required:
+                      - items
+                      additionalProperties: false
                   toolChoice:
                     type: AUTO
         required: true
@@ -606,24 +610,24 @@ paths:
                   description: Tool Calling Response
                   value:
                     content:
-                      - type: TEXT
-                        text: Certainly! I'd be happy to help you find a blue coat. I'll use the product recommendation tool to search for that.
-                      - type: TOOL_USE_REQUEST
-                        toolInput:
-                          categories:
-                            - coats & jackets
-                          colors:
-                            - blue
-                          keywords:
-                            - coat
-                          price_range:
-                            min: 100.0
-                            max: 200.0
-                          limit: 5
-                          today: 2023-06-10T12:00:00Z
-                          id: 550e8400-e29b-41d4-a716-446655440000
-                        name: get_product_recommendations
-                        toolCallId: toolu_bdrk_01Tnc9RttRWSwvKHd5JA1sRk
+                    - type: TEXT
+                      text: Certainly! I'd be happy to help you find a blue coat. I'll use the product recommendation tool to search for that.
+                    - type: TOOL_USE_REQUEST
+                      toolInput:
+                        categories:
+                        - coats & jackets
+                        colors:
+                        - blue
+                        keywords:
+                        - coat
+                        price_range:
+                          min: 100.0
+                          max: 200.0
+                        limit: 5
+                        today: 2023-06-10T12:00:00Z
+                        id: 550e8400-e29b-41d4-a716-446655440000
+                      name: get_product_recommendations
+                      toolCallId: toolu_bdrk_01Tnc9RttRWSwvKHd5JA1sRk
                     modelId: domo.domo_ai.domogpt-medium-v1.2:anthropic
                     isCustomerModel: false
                     sessionId: 526bb9ee-02d0-4717-a83d-946715b5fa82
@@ -633,24 +637,24 @@ paths:
                   description: Final Answer Response
                   value:
                     content:
-                      - type: TEXT
-                        text: 'Great! I''ve found a product that matches your request. The system has recommended a "Wool Blue Coat" for you. Would you like more details about this coat, or would you prefer to see more options?'
+                    - type: TEXT
+                      text: "Great! I've found a product that matches your request. The system has recommended a \"Wool Blue Coat\" for you. Would you like more details about this coat, or would you prefer to see more options?"
                     modelId: domo.domo_ai.domogpt-medium-v1.2:anthropic
                     isCustomerModel: false
                     sessionId: 9c8bf9c4-ef26-4726-818d-a9f57c2a5c46
                     requestId: f0a1a239-4c2d-48f0-825b-28e657f1bb9c
                     stopReason: END_TURN
       security:
-        - domo-developer-token: []
+      - domo-developer-token: []
       parameters:
         toolChoice:
-          description: Specifies the tool configuration for the API call, with expected values being structured as JSON objects representing tool parameters.
+          description: Specifies the tool to be invoked and configured within the API call, accepting an object with parameters that define its functionality.
         reasoningConfig:
-          description: Specifies the configuration settings for the reasoning process, allowing customization of parameters such as logic depth, inference accuracy, and processing speed.
+          description: Enables fine-tuning of AI tool behavior with adjustable configuration settings.
   /api/ai/v1/messages/chat:
     post:
       tags:
-        - AI Services - Messages
+      - AI Services - Messages
       summary: Chat Messages
       description: Process a chat messages request.
       operationId: chatMessages
@@ -664,10 +668,10 @@ paths:
                 description: Basic Chat Messages request.
                 value:
                   input:
-                    - role: USER
-                      content:
-                        - type: TEXT
-                          text: Why is the sky blue?
+                  - role: USER
+                    content:
+                    - type: TEXT
+                      text: Why is the sky blue?
         required: true
       responses:
         '409':
@@ -689,22 +693,22 @@ paths:
                   description: Chat Messages Response
                   value:
                     content:
-                      - type: TEXT
-                        text: The sky appears blue due to a phenomenon called Rayleigh scattering.
+                    - type: TEXT
+                      text: The sky appears blue due to a phenomenon called Rayleigh scattering.
                     modelId: domo.domo_ai.domogpt-medium-v1.2:anthropic
                     isCustomerModel: false
                     sessionId: e1f6a485-7fb6-4f71-b41c-37d6cb5f6bd3
                     requestId: df2256fd-d133-4ea1-b958-295be09be7c1
                     stopReason: END_TURN
       security:
-        - domo-developer-token: []
+      - domo-developer-token: []
       parameters:
         reasoningConfig:
-          description: Specifies the configuration settings for the reasoning process, allowing customizable parameters within the reasoning engine.
+          description: Adjusts the chat model's behavior using customizable settings.
   /api/ai/v1/image/text:
     post:
       tags:
-        - AI Services - Image
+      - AI Services - Image
       summary: Image to Text
       description: |-
         Extract text from an image.
@@ -725,16 +729,16 @@ paths:
                     type: base64
                     mediaType: image/png
               Full Request:
-                description: 'Complete Image-to-Text Request with optional parameters for configuring model, prompt, maxTokens and temperature.'
+                description: "Complete Image-to-Text Request with optional parameters for configuring model, prompt, maxTokens and temperature."
                 value:
-                  input: 'Please describe this image in detail, focusing on the main subject and background elements.'
+                  input: "Please describe this image in detail, focusing on the main subject and background elements."
                   image:
                     data: <base64 string>
                     type: base64
                     mediaType: image/jpeg
                   sessionId: <session_id>
                   model: domo.domo_ai.domogpt-medium-v1.2:anthropic
-                  system: 'You are a professional image analyst. Provide detailed, accurate descriptions of images.'
+                  system: "You are a professional image analyst. Provide detailed, accurate descriptions of images."
                   maxTokens: 500
                   temperature: 0.7
         required: true
@@ -761,14 +765,14 @@ paths:
                     output: This image shows a small red square on a white background. The square appears to be a simple geometric shape with clean edges.
                     model: domo.domo_ai.domogpt-medium-v1.2:anthropic
       security:
-        - domo-developer-token: []
+      - domo-developer-token: []
       parameters:
         reasoningConfig:
-          description: Configures the reasoning settings for image analysis with customizable options specified as a JSON object.
+          description: Configures processing logic during image-to-text tasks with specified options for customization.
   /api/ai/v1/extract:
     post:
       tags:
-        - AI Services - Messages
+      - AI Services - Messages
       summary: Data Extraction
       description: Extract structured data from unstructured text according to a provided JSON schema.
       operationId: messagesExtractData
@@ -782,8 +786,8 @@ paths:
                 description: Extract contact information from text using Messages API.
                 value:
                   input:
-                    - type: TEXT
-                      text: 'Contact: Sarah Johnson, email sarah.j@company.com, phone (555) 123-4567'
+                  - type: TEXT
+                    text: "Contact: Sarah Johnson, email sarah.j@company.com, phone (555) 123-4567"
                   outputStructure:
                     name:
                       type: string
@@ -798,18 +802,18 @@ paths:
                 description: Extract structured data from a resume with nested fields using Messages API.
                 value:
                   input:
-                    - type: TEXT
-                      text: |-
-                        John Smith
-                        Senior Software Engineer
-                        Email: john.smith@email.com | Phone: (555) 123-4567
+                  - type: TEXT
+                    text: |-
+                      John Smith
+                      Senior Software Engineer
+                      Email: john.smith@email.com | Phone: (555) 123-4567
 
-                        Experience:
-                        Tech Corp (2020-Present) - Led microservices architecture serving 5M+ users
-                        StartupXYZ (2016-2019) - Built RESTful APIs with Spring Boot
+                      Experience:
+                      Tech Corp (2020-Present) - Led microservices architecture serving 5M+ users
+                      StartupXYZ (2016-2019) - Built RESTful APIs with Spring Boot
 
-                        Education: B.S. Computer Science, UC Berkeley, 2016
-                        Skills: Java, Python, AWS, Docker, Kubernetes
+                      Education: B.S. Computer Science, UC Berkeley, 2016
+                      Skills: Java, Python, AWS, Docker, Kubernetes
                   outputStructure:
                     name:
                       type: string
@@ -872,31 +876,31 @@ paths:
                       email: john.smith@email.com
                       phone: (555) 123-4567
                       experience:
-                        - company: Tech Corp
-                          years: 2020-Present
-                          role: Led microservices architecture serving 5M+ users
-                        - company: StartupXYZ
-                          years: 2016-2019
-                          role: Built RESTful APIs with Spring Boot
+                      - company: Tech Corp
+                        years: 2020-Present
+                        role: Led microservices architecture serving 5M+ users
+                      - company: StartupXYZ
+                        years: 2016-2019
+                        role: Built RESTful APIs with Spring Boot
                       education: 'B.S. Computer Science, UC Berkeley, 2016'
                       skills:
-                        - Java
-                        - Python
-                        - AWS
-                        - Docker
-                        - Kubernetes
+                      - Java
+                      - Python
+                      - AWS
+                      - Docker
+                      - Kubernetes
                     model: domo.domo_ai.domogpt-medium-v2.1:anthropic
                     isCustomerModel: false
                     requestId: 613f0d20-661a-48c4-a495-60cae524e8f6
       security:
-        - domo-developer-token: []
+      - domo-developer-token: []
       parameters:
         reasoningConfig:
-          description: Specifies the reasoning configuration options, allowing for detailed control over the data extraction process (accepts key-value pairs defining extraction logic parameters).
+          description: Offers customization for reasoning processes through predefined settings.
   /api/ai/v1/embedding/text:
     post:
       tags:
-        - AI Services - Embedding
+      - AI Services - Embedding
       summary: Text Embeddings
       description: Generate text embeddings based on the given text input.
       operationId: embedText
@@ -911,12 +915,12 @@ paths:
                 description: Basic text embedding request.
                 value:
                   input:
-                    - This is a sample text for generating embeddings.
+                  - This is a sample text for generating embeddings.
               Specific Model Request:
                 description: Text embedding request with specific model.
                 value:
                   input:
-                    - This is a sample text for generating embeddings.
+                  - This is a sample text for generating embeddings.
                   model: domo.domo_ai.domo-embed-text-multilingual-v1:cohere
         required: true
       responses:
@@ -939,23 +943,23 @@ paths:
                   description: Embedding Response
                   value:
                     embeddings:
-                      - - 0.1
-                        - 0.2
-                        - 0.3
-                        - 0.4
-                        - 0.5
+                    - - 0.1
+                      - 0.2
+                      - 0.3
+                      - 0.4
+                      - 0.5
                     modelId: domo.domo_ai.domo-embed-text-multilingual-v1:cohere
       security:
-        - domo-developer-token: []
+      - domo-developer-token: []
       parameters:
         dimensions:
-          description: Specifies the number of dimensions for the text embedding, where valid values are positive integers, enhancing the output's specificity and detail.
+          description: Specifies the size of the vector space for the text embeddings, with expected integer values representing the number of dimensions.
         requestId:
-          description: An optional unique identifier for the request, formatted as a UUID, used for tracking and managing requests.
+          description: An optional unique identifier (UUID) for tracking and correlating the request with external systems.
   /api/ai/v1/embedding/image:
     post:
       tags:
-        - AI Services - Embedding
+      - AI Services - Embedding
       summary: Image Embeddings
       description: Generate image embeddings based on the given image input.
       operationId: embedImage
@@ -1002,23 +1006,23 @@ paths:
                   description: Embedding Response
                   value:
                     embeddings:
-                      - - 0.1
-                        - 0.2
-                        - 0.3
-                        - 0.4
-                        - 0.5
+                    - - 0.1
+                      - 0.2
+                      - 0.3
+                      - 0.4
+                      - 0.5
                     modelId: domo.domo_ai.domo-embed-text-multilingual-v1:cohere
       security:
-        - domo-developer-token: []
+      - domo-developer-token: []
       parameters:
         dimensions:
-          description: Specifies the number of dimensions for the generated image embeddings, allowing for a custom integer value or use of the default setting.
+          description: The 'dimensions' parameter specifies the size of the output embedding vector, allowing customization of its dimensionality for the desired image processing application.
         requestId:
-          description: Optional unique identifier for tracking and correlating the request, expected to be a valid UUID string.
+          description: The 'requestId' parameter specifies an optional unique identifier in UUID format for tracking and identifying the specific embedding request.
   /api/ai/v1/classification:
     post:
       tags:
-        - AI Services - Messages
+      - AI Services - Messages
       summary: Text Classification
       description: Classify text into one or more predefined categories using LLM structured outputs.
       operationId: messagesClassification
@@ -1032,51 +1036,51 @@ paths:
                 description: Classify support ticket by priority level using single-label classification.
                 value:
                   input:
-                    - type: text
-                      text: "URGENT: Our production dashboard is down and we can't access any of our KPI data. This is affecting our entire sales team and we need this resolved immediately!"
+                  - type: text
+                    text: "URGENT: Our production dashboard is down and we can't access any of our KPI data. This is affecting our entire sales team and we need this resolved immediately!"
                   labels:
-                    - label: critical
-                      description: System outage or data loss affecting multiple users or business operations
-                    - label: high
-                      description: Significant functionality issue affecting user productivity
-                    - label: medium
-                      description: Feature not working as expected but workarounds available
-                    - label: low
-                      description: 'Minor issue, cosmetic bug, or feature request'
+                  - label: critical
+                    description: System outage or data loss affecting multiple users or business operations
+                  - label: high
+                    description: Significant functionality issue affecting user productivity
+                  - label: medium
+                    description: Feature not working as expected but workarounds available
+                  - label: low
+                    description: 'Minor issue, cosmetic bug, or feature request'
                   classificationType: SINGLE_LABEL
               Product Feedback (Multi-Label):
                 description: Classify product feedback into multiple categories.
                 value:
                   input:
-                    - type: text
-                      text: 'The new filtering feature is great, but it would be even better if we could save filter presets and share them with our team. Also, the export functionality could use some performance improvements when dealing with large datasets.'
+                  - type: text
+                    text: "The new filtering feature is great, but it would be even better if we could save filter presets and share them with our team. Also, the export functionality could use some performance improvements when dealing with large datasets."
                   labels:
-                    - label: feature_request
-                      description: Request for new functionality or capabilities
-                    - label: enhancement
-                      description: Suggestion to improve existing functionality
-                    - label: bug_report
-                      description: Report of incorrect behavior or errors
-                    - label: performance
-                      description: 'Feedback about speed, responsiveness, or resource usage'
-                    - label: usability
-                      description: Feedback about user experience or ease of use
+                  - label: feature_request
+                    description: Request for new functionality or capabilities
+                  - label: enhancement
+                    description: Suggestion to improve existing functionality
+                  - label: bug_report
+                    description: Report of incorrect behavior or errors
+                  - label: performance
+                    description: "Feedback about speed, responsiveness, or resource usage"
+                  - label: usability
+                    description: Feedback about user experience or ease of use
                   classificationType: MULTI_LABEL
               With Specific Model:
                 description: Classification request with a specific model specified.
                 value:
                   input:
-                    - type: text
-                      text: "URGENT: Our production dashboard is down and we can't access any of our KPI data. This is affecting our entire sales team and we need this resolved immediately!"
+                  - type: text
+                    text: "URGENT: Our production dashboard is down and we can't access any of our KPI data. This is affecting our entire sales team and we need this resolved immediately!"
                   labels:
-                    - label: critical
-                      description: System outage or data loss affecting multiple users or business operations
-                    - label: high
-                      description: Significant functionality issue affecting user productivity
-                    - label: medium
-                      description: Feature not working as expected but workarounds available
-                    - label: low
-                      description: 'Minor issue, cosmetic bug, or feature request'
+                  - label: critical
+                    description: System outage or data loss affecting multiple users or business operations
+                  - label: high
+                    description: Significant functionality issue affecting user productivity
+                  - label: medium
+                    description: Feature not working as expected but workarounds available
+                  - label: low
+                    description: 'Minor issue, cosmetic bug, or feature request'
                   classificationType: SINGLE_LABEL
                   model: domo.domo_ai.domogpt-medium-v1.2:anthropic
         required: true
@@ -1100,17 +1104,17 @@ paths:
                   description: Classification Response
                   value:
                     output:
-                      - critical
+                    - critical
                     classificationType: SINGLE_LABEL
                     model: domo.domo_ai.domogpt-medium-v1.2:anthropic
                     isCustomerModel: false
                     sessionId: a1b2c3d4-e5f6-7890-abcd-ef1234567890
                     requestId: f9e8d7c6-b5a4-3210-fedc-ba9876543210
       security:
-        - domo-developer-token: []
+      - domo-developer-token: []
       parameters:
         reasoningConfig:
-          description: Specifies custom reasoning configuration for the classifier, accepting a JSON object detailing algorithm preferences and thresholds.
+          description: Customizes text classification reasoning, enabling tailored logic settings.
 components:
   schemas:
     ChunkingConfiguration:
@@ -1141,24 +1145,24 @@ components:
           type: string
           description: Type of separator being used.
           enum:
-            - text
-            - html
-            - json
-            - markdown
-            - python
-            - javascript
-            - java
-            - go
-            - cpp
-            - latex
-            - rst
-            - ruby
-            - rust
-            - proto
-            - scala
-            - sol
-            - php
-            - swift
+          - text
+          - html
+          - json
+          - markdown
+          - python
+          - javascript
+          - java
+          - go
+          - cpp
+          - latex
+          - rst
+          - ruby
+          - rust
+          - proto
+          - scala
+          - sol
+          - php
+          - swift
         disallowIntermediateChunks:
           type: boolean
           description: |-
@@ -1180,31 +1184,31 @@ components:
       properties:
         template:
           type: string
-          description: Defines the structured text framework used for generating dynamic prompts by integrating variable data.
+          description: Establishes a text framework with parameters for contextually relevant AI outputs.
     ReasoningConfig:
       type: object
       properties:
         reasoningEffort:
           type: string
           enum:
-            - NONE
-            - LOW
-            - MEDIUM
-            - HIGH
-          description: Specifies the computational intensity and resources allocated for the reasoning process in AI Services, influencing the depth and complexity of problem-solving capabilities.
-      description: Configuration settings for AI reasoning that dictate parameters for logical inference and decision-making processes.
+          - NONE
+          - LOW
+          - MEDIUM
+          - HIGH
+          description: Balances computational intensity against performance by adjusting reasoning depth.
+      description: Contains parameters for AI reasoning tasks, including logic strategy and resource usage.
     SizeBoundary:
       type: object
       properties:
         min:
           type: integer
           format: int32
-          description: Defines the minimum allowable size or dimension for the entity being configured.
+          description: Specifies the minimum file size limit within the AI Services API.
         max:
           type: integer
           format: int32
-          description: Specifies the maximum permissible size or dimension for the entity being configured.
-      description: Defines the permitted size constraints for input data to ensure compatibility with AI processing services.
+          description: Sets the maximum file size limit within the AI Services API.
+      description: Sets limits for file size in AI Services, including minimum and maximum constraints.
     TextSummarizationRequest:
       type: object
       description: |-
@@ -1248,7 +1252,7 @@ components:
         sessionId:
           type: string
           format: uuid
-          description: 'The AI session ID. If provided, this request will be associated with the specified AI Session.'
+          description: "The AI session ID. If provided, this request will be associated with the specified AI Session."
         promptTemplate:
           $ref: '#/components/schemas/ParameterizedPromptTemplate'
           description: |-
@@ -1268,7 +1272,7 @@ components:
         modelConfiguration:
           type: object
           additionalProperties: {}
-          description: 'Additional model-specific configuration parameter key-value pairs. e.g. temperature, max_tokens, etc.'
+          description: "Additional model-specific configuration parameter key-value pairs. e.g. temperature, max_tokens, etc."
         system:
           type: string
           description: |-
@@ -1281,15 +1285,15 @@ components:
           description: Configuration for dividing long text into smaller parts or chunks.
         outputStyle:
           type: string
-          description: 'Determines the design, structuring and organization of the summarization output.'
+          description: "Determines the design, structuring and organization of the summarization output."
           enum:
-            - bulleted
-            - numbered
-            - paragraph
-            - unknown
+          - bulleted
+          - numbered
+          - paragraph
+          - unknown
         outputWordLength:
           $ref: '#/components/schemas/SizeBoundary'
-          description: 'Defines a size boundary to limit the length of the output summary, based on number of words.'
+          description: "Defines a size boundary to limit the length of the output summary, based on number of words."
         temperature:
           type: number
           format: double
@@ -1302,7 +1306,7 @@ components:
           $ref: '#/components/schemas/ReasoningConfig'
           description: Configuration for reasoning behavior and effort level.
       required:
-        - input
+      - input
     Choice:
       type: object
       description: A choice generated by a text AI model.
@@ -1316,20 +1320,20 @@ components:
         inputTokens:
           type: integer
           format: int64
-          description: Represents the number of tokens present in the input data sent to the model for processing.
+          description: Shows number of input tokens analyzed by the AI model.
         outputTokens:
           type: integer
           format: int64
-          description: Indicates the number of tokens generated by the model as part of its output.
+          description: Indicates the number of tokens generated after input processing.
         totalTokens:
           type: integer
           format: int64
-          description: Calculates the combined total of input and output tokens processed in a single transaction.
+          description: Sum of input and output tokens, representing total session usage.
         reasoningTokens:
           type: integer
           format: int64
-          description: Counts the tokens specifically used for reasoning tasks within the model's processing.
-      description: Represents usage metrics and data consumption details for a specific AI model provider within the AI Services platform.
+          description: Tokens spent by the AI model on internal reasoning during processing.
+      description: Details usage metrics and limits for a provider's AI model service consumption.
     TextAIResponse:
       type: object
       description: Response from a text AI Service.
@@ -1374,30 +1378,30 @@ components:
           description: The columns in the data source.
           items:
             oneOf:
-              - $ref: '#/components/schemas/AISchemaColumn'
-              - $ref: '#/components/schemas/AISchemaCalculation'
+            - $ref: '#/components/schemas/AISchemaColumn'
+            - $ref: '#/components/schemas/AISchemaCalculation'
     AISchemaCalculation:
       allOf:
-        - $ref: '#/components/schemas/AISchemaColumn'
-        - type: object
-          properties:
-            templateId:
-              type: integer
-              format: int64
-              description: The function template ID.
-            formula:
-              type: string
-              description: The formula for the calculation.
-            aggregatable:
-              type: boolean
-              description: Whether the calculation is able to be aggregated.
-            legacyId:
-              type: string
-              description: The function template legacy ID.
+      - $ref: '#/components/schemas/AISchemaColumn'
+      - type: object
+        properties:
+          templateId:
+            type: integer
+            format: int64
+            description: The function template ID.
+          formula:
+            type: string
+            description: The formula for the calculation.
+          aggregatable:
+            type: boolean
+            description: Whether the calculation is able to be aggregated.
+          legacyId:
+            type: string
+            description: The function template legacy ID.
       description: Data source column metadata for a calculation.
       required:
-        - name
-        - type
+      - name
+      - type
     AISchemaColumn:
       type: object
       description: Data source column metadata.
@@ -1438,8 +1442,8 @@ components:
           type: string
           description: The default aggregation for the column.
       required:
-        - name
-        - type
+      - name
+      - type
     TextToSQLRequest:
       type: object
       description: |-
@@ -1487,7 +1491,7 @@ components:
         sessionId:
           type: string
           format: uuid
-          description: 'The AI session ID. If provided, this request will be associated with the specified AI Session.'
+          description: "The AI session ID. If provided, this request will be associated with the specified AI Session."
         dataSourceSchemas:
           type: array
           description: The data source schemas and metadata to be included in the Text-to-SQL task prompt to generate SQL.
@@ -1511,7 +1515,7 @@ components:
         modelConfiguration:
           type: object
           additionalProperties: {}
-          description: 'Additional model-specific configuration parameter key-value pairs. e.g. temperature, max_tokens, etc.'
+          description: "Additional model-specific configuration parameter key-value pairs. e.g. temperature, max_tokens, etc."
         dialect:
           type: string
           description: The SQL dialect to use in the Text-to-SQL task prompt. Defaults to MYSQL.
@@ -1536,16 +1540,16 @@ components:
           items:
             type: string
             enum:
-              - EXPAND_SELECT_STAR
-              - USE_DATA_SOURCE_ID_AS_TABLE_NAME
-              - UNION_TO_UNION_ALL
-              - DISALLOW_COMMON_TABLE_EXPRESSIONS
-              - DISALLOW_JOINS
-              - DISALLOW_SUBQUERIES
-              - DISALLOW_UNIONS
-              - VALIDATE_REFERENCES
-              - VALIDATE_AGGREGATIONS
-              - VALIDATE_FUNCTIONS
+            - EXPAND_SELECT_STAR
+            - USE_DATA_SOURCE_ID_AS_TABLE_NAME
+            - UNION_TO_UNION_ALL
+            - DISALLOW_COMMON_TABLE_EXPRESSIONS
+            - DISALLOW_JOINS
+            - DISALLOW_SUBQUERIES
+            - DISALLOW_UNIONS
+            - VALIDATE_REFERENCES
+            - VALIDATE_AGGREGATIONS
+            - VALIDATE_FUNCTIONS
           uniqueItems: true
         temperature:
           type: number
@@ -1561,245 +1565,148 @@ components:
           $ref: '#/components/schemas/ReasoningConfig'
           description: Configuration for reasoning behavior and effort level.
       required:
-        - input
+      - input
     ArrayFunctionParameter:
       allOf:
-        - $ref: '#/components/schemas/FunctionParameterObject'
-        - type: object
-          properties:
-            description:
-              type: string
-            title:
-              type: string
+      - $ref: '#/components/schemas/FunctionParameterObject'
+      - type: object
+        properties:
+          description:
+            type: string
+          title:
+            type: string
+          items:
+            $ref: '#/components/schemas/FunctionParameterObject'
+          enum:
+            type: array
             items:
-              $ref: '#/components/schemas/FunctionParameterObject'
-            enum:
-              type: array
-              items:
-                type: array
-                items: {}
-              uniqueItems: true
-            minItems:
-              type: integer
-              format: int32
-            maxItems:
-              type: integer
-              format: int32
-            uniqueItems:
-              type: boolean
-            const:
               type: array
               items: {}
+            uniqueItems: true
+          minItems:
+            type: integer
+            format: int32
+          maxItems:
+            type: integer
+            format: int32
+          uniqueItems:
+            type: boolean
+          const:
+            type: array
+            items: {}
       required:
-        - description
-        - type
-      description: Defines a structured parameter for an array-based function within the AI Services API, detailing its elements and associated constraints.
+      - description
+      - type
+      description: Defines an array parameter for AI services, detailing data types and structural limits.
     BooleanFunctionParameter:
       allOf:
-        - $ref: '#/components/schemas/FunctionParameterObject'
-        - type: object
-          properties:
-            description:
-              type: string
-            title:
-              type: string
-            const:
+      - $ref: '#/components/schemas/FunctionParameterObject'
+      - type: object
+        properties:
+          description:
+            type: string
+          title:
+            type: string
+          const:
+            type: boolean
+          enum:
+            type: array
+            items:
               type: boolean
-            enum:
-              type: array
-              items:
-                type: boolean
-              uniqueItems: true
+            uniqueItems: true
       required:
-        - description
-        - type
-      description: Defines a parameter for function calls, indicating a true or false value to dictate branching logic in AI service operations.
+      - description
+      - type
+      description: Sets a true or false condition for function behavior control in the AI Services API.
     FunctionParameterObject:
       type: object
       properties:
         type:
           type: string
           enum:
-            - object
-            - array
-            - string
-            - number
-            - integer
-            - boolean
-            - 'null'
-            - unknown
-            - oneOf
-            - allOf
-            - anyOf
-          description: Specifies the data type of the parameter, determining what kind of value it can hold, such as a string, integer, or boolean.
+          - object
+          - array
+          - string
+          - number
+          - integer
+          - boolean
+          - 'null'
+          - unknown
+          - oneOf
+          - allOf
+          - anyOf
+          description: Describes the expected format of a parameter, such as 'string' or 'number'.
         const:
-          description: Defines a fixed value for the parameter, indicating that its value is restricted to a single constant throughout the execution.
+          description: Specifies a fixed value for a parameter, ensuring consistency.
         enum:
           type: array
           items: {}
           uniqueItems: true
-          description: Represents a list of allowable values for the parameter, thus constraining it to accept only one of the predefined options.
+          description: Lists permitted values for a parameter, ensuring valid choices.
       required:
-        - type
-      description: Defines the parameters required for executing AI service functions, detailing input restrictions, types, and optional default values.
+      - type
+      description: Details essential parameters for AI functions, including types and validations.
     IntegerFunctionParameter:
       allOf:
-        - $ref: '#/components/schemas/FunctionParameterObject'
-        - type: object
-          properties:
-            description:
-              type: string
-            title:
-              type: string
-            multipleOf:
+      - $ref: '#/components/schemas/FunctionParameterObject'
+      - type: object
+        properties:
+          description:
+            type: string
+          title:
+            type: string
+          multipleOf:
+            type: integer
+            format: int32
+          minimum:
+            type: integer
+            format: int32
+          exclusiveMinimum:
+            type: integer
+            format: int32
+          maximum:
+            type: integer
+            format: int32
+          exclusiveMaximum:
+            type: integer
+            format: int32
+          enum:
+            type: array
+            items:
               type: integer
               format: int32
-            minimum:
-              type: integer
-              format: int32
-            exclusiveMinimum:
-              type: integer
-              format: int32
-            maximum:
-              type: integer
-              format: int32
-            exclusiveMaximum:
-              type: integer
-              format: int32
-            enum:
-              type: array
-              items:
-                type: integer
-                format: int32
-              uniqueItems: true
-            const:
-              type: integer
-              format: int32
+            uniqueItems: true
+          const:
+            type: integer
+            format: int32
       required:
-        - description
-        - type
-      description: Defines an integer parameter required for configuring the input of a machine learning function within the AI Services API.
+      - description
+      - type
+      description: Defines an integer parameter for adjusting AI Service functions.
     JsonResponseFormat:
       allOf:
-        - $ref: '#/components/schemas/ResponseFormat'
-        - type: object
-          properties:
-            schema:
-              $ref: '#/components/schemas/ObjectFunctionParameter'
-              description: The JSON Schema to which the model response should adhere.
+      - $ref: '#/components/schemas/ResponseFormat'
+      - type: object
+        properties:
+          schema:
+            $ref: '#/components/schemas/ObjectFunctionParameter'
+            description: The JSON Schema to which the model response should adhere.
       description: |-
         JSON response format provides schema information to the model for use cases where structured output is desired.
          The schema object follows the <a href="https://json-schema.org/specification">JSON Schema</a> specification.
     LogicalOperatorFunctionParameter:
       allOf:
-        - $ref: '#/components/schemas/FunctionParameterObject'
-        - type: object
-          properties:
-            description:
-              type: string
-            title:
-              type: string
-            oneOf:
-              type: array
-              items:
-                oneOf:
-                  - $ref: '#/components/schemas/ArrayFunctionParameter'
-                  - $ref: '#/components/schemas/BooleanFunctionParameter'
-                  - $ref: '#/components/schemas/IntegerFunctionParameter'
-                  - $ref: '#/components/schemas/LogicalOperatorFunctionParameter'
-                  - $ref: '#/components/schemas/NullFunctionParameter'
-                  - $ref: '#/components/schemas/NumberFunctionParameter'
-                  - $ref: '#/components/schemas/ObjectFunctionParameter'
-                  - $ref: '#/components/schemas/StringFunctionParameter'
-            allOf:
-              type: array
-              items:
-                oneOf:
-                  - $ref: '#/components/schemas/ArrayFunctionParameter'
-                  - $ref: '#/components/schemas/BooleanFunctionParameter'
-                  - $ref: '#/components/schemas/IntegerFunctionParameter'
-                  - $ref: '#/components/schemas/LogicalOperatorFunctionParameter'
-                  - $ref: '#/components/schemas/NullFunctionParameter'
-                  - $ref: '#/components/schemas/NumberFunctionParameter'
-                  - $ref: '#/components/schemas/ObjectFunctionParameter'
-                  - $ref: '#/components/schemas/StringFunctionParameter'
-            anyOf:
-              type: array
-              items:
-                oneOf:
-                  - $ref: '#/components/schemas/ArrayFunctionParameter'
-                  - $ref: '#/components/schemas/BooleanFunctionParameter'
-                  - $ref: '#/components/schemas/IntegerFunctionParameter'
-                  - $ref: '#/components/schemas/LogicalOperatorFunctionParameter'
-                  - $ref: '#/components/schemas/NullFunctionParameter'
-                  - $ref: '#/components/schemas/NumberFunctionParameter'
-                  - $ref: '#/components/schemas/ObjectFunctionParameter'
-                  - $ref: '#/components/schemas/StringFunctionParameter'
-      required:
-        - description
-        - type
-      description: Defines parameters for applying logical operators in API requests, enabling customized logical evaluations.
-    NullFunctionParameter:
-      allOf:
-        - $ref: '#/components/schemas/FunctionParameterObject'
-        - type: object
-          properties:
-            description:
-              type: string
-            title:
-              type: string
-      required:
-        - description
-        - type
-      description: Represents a function parameter that accepts a null value, indicating optionality or default behavior in AI service operations.
-    NumberFunctionParameter:
-      allOf:
-        - $ref: '#/components/schemas/FunctionParameterObject'
-        - type: object
-          properties:
-            description:
-              type: string
-            title:
-              type: string
-            multipleOf:
-              type: number
-              format: double
-            minimum:
-              type: number
-              format: double
-            exclusiveMinimum:
-              type: number
-              format: double
-            maximum:
-              type: number
-              format: double
-            exclusiveMaximum:
-              type: number
-              format: double
-            enum:
-              type: array
-              items:
-                type: number
-                format: double
-              uniqueItems: true
-            const:
-              type: number
-              format: double
-      required:
-        - description
-        - type
-      description: Represents the parameters for a function that applies numeric operations within AI services.
-    ObjectFunctionParameter:
-      type: object
-      properties:
-        description:
-          type: string
-        title:
-          type: string
+      - $ref: '#/components/schemas/FunctionParameterObject'
+      - type: object
         properties:
-          type: object
-          additionalProperties:
-            oneOf:
+          description:
+            type: string
+          title:
+            type: string
+          oneOf:
+            type: array
+            items:
+              oneOf:
               - $ref: '#/components/schemas/ArrayFunctionParameter'
               - $ref: '#/components/schemas/BooleanFunctionParameter'
               - $ref: '#/components/schemas/IntegerFunctionParameter'
@@ -1808,106 +1715,217 @@ components:
               - $ref: '#/components/schemas/NumberFunctionParameter'
               - $ref: '#/components/schemas/ObjectFunctionParameter'
               - $ref: '#/components/schemas/StringFunctionParameter'
+          allOf:
+            type: array
+            items:
+              oneOf:
+              - $ref: '#/components/schemas/ArrayFunctionParameter'
+              - $ref: '#/components/schemas/BooleanFunctionParameter'
+              - $ref: '#/components/schemas/IntegerFunctionParameter'
+              - $ref: '#/components/schemas/LogicalOperatorFunctionParameter'
+              - $ref: '#/components/schemas/NullFunctionParameter'
+              - $ref: '#/components/schemas/NumberFunctionParameter'
+              - $ref: '#/components/schemas/ObjectFunctionParameter'
+              - $ref: '#/components/schemas/StringFunctionParameter'
+          anyOf:
+            type: array
+            items:
+              oneOf:
+              - $ref: '#/components/schemas/ArrayFunctionParameter'
+              - $ref: '#/components/schemas/BooleanFunctionParameter'
+              - $ref: '#/components/schemas/IntegerFunctionParameter'
+              - $ref: '#/components/schemas/LogicalOperatorFunctionParameter'
+              - $ref: '#/components/schemas/NullFunctionParameter'
+              - $ref: '#/components/schemas/NumberFunctionParameter'
+              - $ref: '#/components/schemas/ObjectFunctionParameter'
+              - $ref: '#/components/schemas/StringFunctionParameter'
+      required:
+      - description
+      - type
+      description: Sets a logical operator for condition specifications in AI processing.
+    NullFunctionParameter:
+      allOf:
+      - $ref: '#/components/schemas/FunctionParameterObject'
+      - type: object
+        properties:
+          description:
+            type: string
+          title:
+            type: string
+      required:
+      - description
+      - type
+      description: Indicates a nullable parameter for optional functionality in the AI Services API.
+    NumberFunctionParameter:
+      allOf:
+      - $ref: '#/components/schemas/FunctionParameterObject'
+      - type: object
+        properties:
+          description:
+            type: string
+          title:
+            type: string
+          multipleOf:
+            type: number
+            format: double
+          minimum:
+            type: number
+            format: double
+          exclusiveMinimum:
+            type: number
+            format: double
+          maximum:
+            type: number
+            format: double
+          exclusiveMaximum:
+            type: number
+            format: double
+          enum:
+            type: array
+            items:
+              type: number
+              format: double
+            uniqueItems: true
+          const:
+            type: number
+            format: double
+      required:
+      - description
+      - type
+      description: Defines numerical parameters, including limits and precision settings.
+    ObjectFunctionParameter:
+      type: object
+      properties:
+        description:
+          type: string
+          description: A detailed explanation of the purpose and usage of the parameter within the object function.
+        title:
+          type: string
+          description: A brief, human-readable name or label for the parameter.
+        properties:
+          type: object
+          additionalProperties:
+            oneOf:
+            - $ref: '#/components/schemas/ArrayFunctionParameter'
+            - $ref: '#/components/schemas/BooleanFunctionParameter'
+            - $ref: '#/components/schemas/IntegerFunctionParameter'
+            - $ref: '#/components/schemas/LogicalOperatorFunctionParameter'
+            - $ref: '#/components/schemas/NullFunctionParameter'
+            - $ref: '#/components/schemas/NumberFunctionParameter'
+            - $ref: '#/components/schemas/ObjectFunctionParameter'
+            - $ref: '#/components/schemas/StringFunctionParameter'
+          description: An object defining specific sub-properties that are part of this parameter's structure.
         additionalProperties:
           type: boolean
+          description: A flag indicating whether object properties not specified in 'properties' are allowed.
         required:
           type: array
           items:
             type: string
+          description: An array specifying the names of properties that must be included in the object.
         enum:
           type: array
           items:
             type: object
             additionalProperties: {}
           uniqueItems: true
+          description: A list enumerating the predefined set of valid values for this parameter.
         minProperties:
           type: integer
           format: int32
+          description: The minimum number of properties that must be present in the object.
         maxProperties:
           type: integer
           format: int32
+          description: The maximum number of properties that are allowed in the object.
         const:
           type: object
           additionalProperties: {}
+          description: A property that restricts the parameter's value to a single constant value.
         $defs:
           type: object
           additionalProperties:
             oneOf:
-              - $ref: '#/components/schemas/ArrayFunctionParameter'
-              - $ref: '#/components/schemas/BooleanFunctionParameter'
-              - $ref: '#/components/schemas/IntegerFunctionParameter'
-              - $ref: '#/components/schemas/LogicalOperatorFunctionParameter'
-              - $ref: '#/components/schemas/NullFunctionParameter'
-              - $ref: '#/components/schemas/NumberFunctionParameter'
-              - $ref: '#/components/schemas/ObjectFunctionParameter'
-              - $ref: '#/components/schemas/StringFunctionParameter'
+            - $ref: '#/components/schemas/ArrayFunctionParameter'
+            - $ref: '#/components/schemas/BooleanFunctionParameter'
+            - $ref: '#/components/schemas/IntegerFunctionParameter'
+            - $ref: '#/components/schemas/LogicalOperatorFunctionParameter'
+            - $ref: '#/components/schemas/NullFunctionParameter'
+            - $ref: '#/components/schemas/NumberFunctionParameter'
+            - $ref: '#/components/schemas/ObjectFunctionParameter'
+            - $ref: '#/components/schemas/StringFunctionParameter'
+          description: A location where reusable schema definitions can be declared for use within the schema.
         definitions:
           type: object
           additionalProperties:
             oneOf:
-              - $ref: '#/components/schemas/ArrayFunctionParameter'
-              - $ref: '#/components/schemas/BooleanFunctionParameter'
-              - $ref: '#/components/schemas/IntegerFunctionParameter'
-              - $ref: '#/components/schemas/LogicalOperatorFunctionParameter'
-              - $ref: '#/components/schemas/NullFunctionParameter'
-              - $ref: '#/components/schemas/NumberFunctionParameter'
-              - $ref: '#/components/schemas/ObjectFunctionParameter'
-              - $ref: '#/components/schemas/StringFunctionParameter'
+            - $ref: '#/components/schemas/ArrayFunctionParameter'
+            - $ref: '#/components/schemas/BooleanFunctionParameter'
+            - $ref: '#/components/schemas/IntegerFunctionParameter'
+            - $ref: '#/components/schemas/LogicalOperatorFunctionParameter'
+            - $ref: '#/components/schemas/NullFunctionParameter'
+            - $ref: '#/components/schemas/NumberFunctionParameter'
+            - $ref: '#/components/schemas/ObjectFunctionParameter'
+            - $ref: '#/components/schemas/StringFunctionParameter'
         type:
           type: string
           enum:
-            - object
-            - array
-            - string
-            - number
-            - integer
-            - boolean
-            - 'null'
-            - unknown
-            - oneOf
-            - allOf
-            - anyOf
+          - object
+          - array
+          - string
+          - number
+          - integer
+          - boolean
+          - 'null'
+          - unknown
+          - oneOf
+          - allOf
+          - anyOf
       required:
-        - description
-        - properties
-        - type
+      - description
+      - properties
+      - type
+      description: Defines the parameters required for executing a specific function within the AI Services, detailing input types and constraints.
     ResponseFormat:
       discriminator:
         propertyName: type
       properties:
         type:
           type: string
+          description: Specifies the format or structure of the data expected in the API response, such as JSON, XML, or plain text, ensuring compatibility with different client applications.
       required:
-        - type
+      - type
+      description: Defines the structure and content of responses from the AI Services API, including result data and status indicators.
     StringFunctionParameter:
       allOf:
-        - $ref: '#/components/schemas/FunctionParameterObject'
-        - type: object
-          properties:
-            description:
+      - $ref: '#/components/schemas/FunctionParameterObject'
+      - type: object
+        properties:
+          description:
+            type: string
+          title:
+            type: string
+          minLength:
+            type: integer
+            format: int32
+          maxLength:
+            type: integer
+            format: int32
+          pattern:
+            type: string
+          enum:
+            type: array
+            items:
               type: string
-            title:
-              type: string
-            minLength:
-              type: integer
-              format: int32
-            maxLength:
-              type: integer
-              format: int32
-            pattern:
-              type: string
-            enum:
-              type: array
-              items:
-                type: string
-              uniqueItems: true
-            format:
-              type: string
-            const:
-              type: string
+            uniqueItems: true
+          format:
+            type: string
+          const:
+            type: string
       required:
-        - description
-        - type
+      - description
+      - type
+      description: Defines a parameter for string manipulation functions, encompassing options for input string specifications and transformation preferences.
     TextGenerationRequest:
       type: object
       description: |-
@@ -1951,7 +1969,7 @@ components:
         sessionId:
           type: string
           format: uuid
-          description: 'The AI session ID. If provided, this request will be associated with the specified AI Session.'
+          description: "The AI session ID. If provided, this request will be associated with the specified AI Session."
         promptTemplate:
           $ref: '#/components/schemas/ParameterizedPromptTemplate'
           description: |-
@@ -1970,7 +1988,7 @@ components:
         modelConfiguration:
           type: object
           additionalProperties: {}
-          description: 'Additional model-specific configuration parameter key-value pairs. e.g. temperature, max_tokens, etc.'
+          description: "Additional model-specific configuration parameter key-value pairs. e.g. temperature, max_tokens, etc."
         system:
           type: string
           description: |-
@@ -1988,12 +2006,12 @@ components:
         responseFormat:
           description: Model response format specification for structured outputs.
           oneOf:
-            - $ref: '#/components/schemas/JsonResponseFormat'
+          - $ref: '#/components/schemas/JsonResponseFormat'
         reasoningConfig:
           $ref: '#/components/schemas/ReasoningConfig'
           description: Configuration for reasoning behavior and effort level.
       required:
-        - input
+      - input
     TextToBeastModeRequest:
       type: object
       description: |-
@@ -2038,7 +2056,7 @@ components:
         sessionId:
           type: string
           format: uuid
-          description: 'The AI session ID. If provided, this request will be associated with the specified AI Session.'
+          description: "The AI session ID. If provided, this request will be associated with the specified AI Session."
         dataSourceSchema:
           $ref: '#/components/schemas/AIDataSourceSchema'
           description: |-
@@ -2063,7 +2081,7 @@ components:
         modelConfiguration:
           type: object
           additionalProperties: {}
-          description: 'Additional model-specific configuration parameter key-value pairs. e.g. temperature, max_tokens, etc.'
+          description: "Additional model-specific configuration parameter key-value pairs. e.g. temperature, max_tokens, etc."
         system:
           type: string
           description: |-
@@ -2085,7 +2103,7 @@ components:
           $ref: '#/components/schemas/ReasoningConfig'
           description: Configuration for reasoning behavior and effort level.
       required:
-        - input
+      - input
     Document:
       type: object
       description: Document data and metadata.
@@ -2104,22 +2122,26 @@ components:
           description: the name of the document
     DocumentMessageContent:
       allOf:
-        - $ref: '#/components/schemas/MessageContent'
-        - type: object
-          properties:
-            document:
-              $ref: '#/components/schemas/Document'
-              description: the document data and metadata
+      - $ref: '#/components/schemas/MessageContent'
+      - type: object
+        properties:
+          document:
+            $ref: '#/components/schemas/Document'
+            description: the document data and metadata
       description: Document-based message content.
     FunctionBlueprint:
       type: object
       properties:
         name:
           type: string
+          description: Specifies the unique identifier for the function within the AI Services API, crucial for distinguishing it among multiple functions.
         description:
           type: string
+          description: Provides a detailed summary of the function's purpose and capabilities within the AI Services, aiding users in understanding its applicability.
         parameters:
           $ref: '#/components/schemas/ObjectFunctionParameter'
+          description: Defines the input values required for the function's execution, detailing their types, constraints, and defaults to ensure proper utilization.
+      description: Defines the blueprint for function parameters and execution details within the AI Services platform, enabling structured interaction with AI capabilities.
     Image:
       type: object
       description: Image data and metadata.
@@ -2135,12 +2157,12 @@ components:
           description: the media type of the image e.g. "image/png"
     ImageMessageContent:
       allOf:
-        - $ref: '#/components/schemas/MessageContent'
-        - type: object
-          properties:
-            image:
-              $ref: '#/components/schemas/Image'
-              description: the image data and metadata
+      - $ref: '#/components/schemas/MessageContent'
+      - type: object
+        properties:
+          image:
+            $ref: '#/components/schemas/Image'
+            description: the image data and metadata
       description: Image-based message content.
     Message:
       type: object
@@ -2151,48 +2173,50 @@ components:
           description: the list of content items that make up this message
           items:
             oneOf:
-              - $ref: '#/components/schemas/DocumentMessageContent'
-              - $ref: '#/components/schemas/ImageMessageContent'
-              - $ref: '#/components/schemas/ReasoningMessageContent'
-              - $ref: '#/components/schemas/TextMessageContent'
-              - $ref: '#/components/schemas/ToolUseRequestMessageContent'
-              - $ref: '#/components/schemas/ToolUseResultMessageContent'
+            - $ref: '#/components/schemas/DocumentMessageContent'
+            - $ref: '#/components/schemas/ImageMessageContent'
+            - $ref: '#/components/schemas/ReasoningMessageContent'
+            - $ref: '#/components/schemas/TextMessageContent'
+            - $ref: '#/components/schemas/ToolUseRequestMessageContent'
+            - $ref: '#/components/schemas/ToolUseResultMessageContent'
         role:
           type: string
           description: the role of the message sender
           enum:
-            - USER
-            - ASSISTANT
+          - USER
+          - ASSISTANT
     MessageContent:
       discriminator:
         propertyName: type
       properties:
         type:
           type: string
+          description: Specifies the format or nature of the message content, such as 'text', 'image', or 'audio', defining how the message should be interpreted and processed.
       required:
-        - type
+      - type
+      description: Defines the structure and content of a message within the AI Services API, encompassing text data and associated metadata for message handling.
     ReasoningMessageContent:
       allOf:
-        - $ref: '#/components/schemas/MessageContent'
-        - type: object
-          properties:
-            text:
-              type: string
-              description: the reasoning/thinking text generated by the model
-            signature:
-              type: string
-              description: optional signature for the reasoning content
+      - $ref: '#/components/schemas/MessageContent'
+      - type: object
+        properties:
+          text:
+            type: string
+            description: the reasoning/thinking text generated by the model
+          signature:
+            type: string
+            description: optional signature for the reasoning content
       description: |-
         Reasoning (thinking) message content.
          Contains the model's internal reasoning process when extended thinking is enabled.
     TextMessageContent:
       allOf:
-        - $ref: '#/components/schemas/MessageContent'
-        - type: object
-          properties:
-            text:
-              type: string
-              description: the text content of the message
+      - $ref: '#/components/schemas/MessageContent'
+      - type: object
+        properties:
+          text:
+            type: string
+            description: the text content of the message
       description: Text-based message content.
     ToolCallRequest:
       type: object
@@ -2242,52 +2266,56 @@ components:
           $ref: '#/components/schemas/ReasoningConfig'
           description: Configuration for reasoning behavior and effort level.
       required:
-        - input
+      - input
     ToolChoice:
       type: object
       properties:
         type:
           type: string
           enum:
-            - AUTO
-            - ANY
-            - TOOL
-            - UNKNOWN
+          - AUTO
+          - ANY
+          - TOOL
+          - UNKNOWN
+          description: Specifies the category or classification of the tool within the AI services suite.
         name:
           type: string
+          description: Denotes the unique identifier for the tool, used to distinguish it from others within the suite.
         allowParallelToolCalls:
           type: boolean
+          description: Indicates whether multiple instances of the tool can be executed simultaneously, allowing for concurrent processing tasks.
+      description: Defines the selection criteria and parameters for choosing AI tools within the AI Services platform.
     ToolUseRequestMessageContent:
       allOf:
-        - $ref: '#/components/schemas/MessageContent'
-        - type: object
-          properties:
-            toolInput:
-              type: object
-              additionalProperties: {}
-              description: the input parameters for the tool
-            name:
-              type: string
-              description: the name of the tool to execute
-            toolCallId:
-              type: string
-              description: unique identifier for this tool call
+      - $ref: '#/components/schemas/MessageContent'
+      - type: object
+        properties:
+          toolInput:
+            type: object
+            additionalProperties: {}
+            description: the input parameters for the tool
+          name:
+            type: string
+            description: the name of the tool to execute
+          toolCallId:
+            type: string
+            description: unique identifier for this tool call
       description: Tool use request message content.
       required:
-        - name
-        - toolCallId
-        - toolInput
+      - name
+      - toolCallId
+      - toolInput
     ToolUseResultMessageContent:
       allOf:
-        - $ref: '#/components/schemas/MessageContent'
-        - type: object
-          properties:
-            toolCallId:
-              type: string
-              description: unique identifier for the tool call this result corresponds to
+      - $ref: '#/components/schemas/MessageContent'
+      - type: object
+        properties:
+          toolCallId:
+            type: string
+            description: unique identifier for the tool call this result corresponds to
       description: Tool use result message content.
       required:
-        - toolCallId
+      - toolCallId
     MessagesAIResponse:
       type: object
       description: Response from a Messages API.
@@ -2297,12 +2325,12 @@ components:
           description: The list of content generated by the model.
           items:
             oneOf:
-              - $ref: '#/components/schemas/DocumentMessageContent'
-              - $ref: '#/components/schemas/ImageMessageContent'
-              - $ref: '#/components/schemas/ReasoningMessageContent'
-              - $ref: '#/components/schemas/TextMessageContent'
-              - $ref: '#/components/schemas/ToolUseRequestMessageContent'
-              - $ref: '#/components/schemas/ToolUseResultMessageContent'
+            - $ref: '#/components/schemas/DocumentMessageContent'
+            - $ref: '#/components/schemas/ImageMessageContent'
+            - $ref: '#/components/schemas/ReasoningMessageContent'
+            - $ref: '#/components/schemas/TextMessageContent'
+            - $ref: '#/components/schemas/ToolUseRequestMessageContent'
+            - $ref: '#/components/schemas/ToolUseResultMessageContent'
         modelId:
           type: string
           description: The id of the model used to generate the response.
@@ -2314,13 +2342,13 @@ components:
           type: string
           description: The reason that the model stopped.
           enum:
-            - TOOL_USE
-            - MAX_TOKENS
-            - STOP_SEQUENCE
-            - END_TURN
-            - CONTENT_FILTERED
-            - SAFETY
-            - UNKNOWN
+          - TOOL_USE
+          - MAX_TOKENS
+          - STOP_SEQUENCE
+          - END_TURN
+          - CONTENT_FILTERED
+          - SAFETY
+          - UNKNOWN
         modelProviderUsage:
           $ref: '#/components/schemas/ModelProviderUsage'
           description: The token usage from the model provider.
@@ -2360,12 +2388,12 @@ components:
         responseFormat:
           description: Model response format specification for structured outputs.
           oneOf:
-            - $ref: '#/components/schemas/JsonResponseFormat'
+          - $ref: '#/components/schemas/JsonResponseFormat'
         reasoningConfig:
           $ref: '#/components/schemas/ReasoningConfig'
           description: Configuration for reasoning behavior and effort level.
       required:
-        - input
+      - input
     ImageToTextRequest:
       type: object
       description: |-
@@ -2412,7 +2440,7 @@ components:
         sessionId:
           type: string
           format: uuid
-          description: 'The AI session ID. If provided, this request will be associated with the specified AI Session.'
+          description: "The AI session ID. If provided, this request will be associated with the specified AI Session."
         model:
           type: string
           description: |-
@@ -2427,7 +2455,7 @@ components:
         modelConfiguration:
           type: object
           additionalProperties: {}
-          description: 'Additional model-specific configuration parameter key-value pairs. e.g. temperature, max_tokens, etc.'
+          description: "Additional model-specific configuration parameter key-value pairs. e.g. temperature, max_tokens, etc."
         promptTemplate:
           $ref: '#/components/schemas/ParameterizedPromptTemplate'
           description: |-
@@ -2449,12 +2477,12 @@ components:
         responseFormat:
           description: Model response format specification for structured outputs.
           oneOf:
-            - $ref: '#/components/schemas/JsonResponseFormat'
+          - $ref: '#/components/schemas/JsonResponseFormat'
         reasoningConfig:
           $ref: '#/components/schemas/ReasoningConfig'
           description: Configuration for reasoning behavior and effort level.
       required:
-        - input
+      - input
     ExtractDataMessagesRequest:
       type: object
       description: |-
@@ -2465,34 +2493,34 @@ components:
       properties:
         input:
           type: array
-          description: 'The input message content to extract data from (text, images, documents, etc.)'
+          description: "The input message content to extract data from (text, images, documents, etc.)"
           items:
             oneOf:
-              - $ref: '#/components/schemas/DocumentMessageContent'
-              - $ref: '#/components/schemas/ImageMessageContent'
-              - $ref: '#/components/schemas/ReasoningMessageContent'
-              - $ref: '#/components/schemas/TextMessageContent'
-              - $ref: '#/components/schemas/ToolUseRequestMessageContent'
-              - $ref: '#/components/schemas/ToolUseResultMessageContent'
+            - $ref: '#/components/schemas/DocumentMessageContent'
+            - $ref: '#/components/schemas/ImageMessageContent'
+            - $ref: '#/components/schemas/ReasoningMessageContent'
+            - $ref: '#/components/schemas/TextMessageContent'
+            - $ref: '#/components/schemas/ToolUseRequestMessageContent'
+            - $ref: '#/components/schemas/ToolUseResultMessageContent'
         outputStructure:
           type: object
           additionalProperties:
             oneOf:
-              - $ref: '#/components/schemas/ArrayFunctionParameter'
-              - $ref: '#/components/schemas/BooleanFunctionParameter'
-              - $ref: '#/components/schemas/IntegerFunctionParameter'
-              - $ref: '#/components/schemas/LogicalOperatorFunctionParameter'
-              - $ref: '#/components/schemas/NullFunctionParameter'
-              - $ref: '#/components/schemas/NumberFunctionParameter'
-              - $ref: '#/components/schemas/ObjectFunctionParameter'
-              - $ref: '#/components/schemas/StringFunctionParameter'
+            - $ref: '#/components/schemas/ArrayFunctionParameter'
+            - $ref: '#/components/schemas/BooleanFunctionParameter'
+            - $ref: '#/components/schemas/IntegerFunctionParameter'
+            - $ref: '#/components/schemas/LogicalOperatorFunctionParameter'
+            - $ref: '#/components/schemas/NullFunctionParameter'
+            - $ref: '#/components/schemas/NumberFunctionParameter'
+            - $ref: '#/components/schemas/ObjectFunctionParameter'
+            - $ref: '#/components/schemas/StringFunctionParameter'
           description: Map of field names to their FunctionParameter definitions. All fields are treated as required.
         instructions:
           type: string
           description: Optional instructions for extraction behavior
         model:
           type: string
-          description: 'The ID of the model to use (optional, uses default if not specified)'
+          description: "The ID of the model to use (optional, uses default if not specified)"
         modelConfiguration:
           type: object
           additionalProperties: {}
@@ -2505,8 +2533,8 @@ components:
           $ref: '#/components/schemas/ReasoningConfig'
           description: Configuration for reasoning behavior
       required:
-        - input
-        - outputStructure
+      - input
+      - outputStructure
     ExtractDataResponse:
       type: object
       description: |-
@@ -2532,7 +2560,7 @@ components:
         modelProviderUsage:
           $ref: '#/components/schemas/ModelProviderUsage'
       required:
-        - output
+      - output
     TextEmbeddingAIRequest:
       type: object
       description: |-
@@ -2574,6 +2602,7 @@ components:
           type: string
         modelProviderUsage:
           $ref: '#/components/schemas/ModelProviderUsage'
+      description: Represents a response object containing vector embeddings and metadata for AI-driven content processing.
     ImageEmbeddingAIRequest:
       type: object
       description: |-
@@ -2613,7 +2642,7 @@ components:
           type: string
           description: Optional description to help the LLM understand when to use this label (max 500 characters).
       required:
-        - label
+      - label
     ClassificationMessagesRequest:
       type: object
       description: |-
@@ -2625,15 +2654,15 @@ components:
       properties:
         input:
           type: array
-          description: 'The input message content to classify (text, images, documents, etc.)'
+          description: "The input message content to classify (text, images, documents, etc.)"
           items:
             oneOf:
-              - $ref: '#/components/schemas/DocumentMessageContent'
-              - $ref: '#/components/schemas/ImageMessageContent'
-              - $ref: '#/components/schemas/ReasoningMessageContent'
-              - $ref: '#/components/schemas/TextMessageContent'
-              - $ref: '#/components/schemas/ToolUseRequestMessageContent'
-              - $ref: '#/components/schemas/ToolUseResultMessageContent'
+            - $ref: '#/components/schemas/DocumentMessageContent'
+            - $ref: '#/components/schemas/ImageMessageContent'
+            - $ref: '#/components/schemas/ReasoningMessageContent'
+            - $ref: '#/components/schemas/TextMessageContent'
+            - $ref: '#/components/schemas/ToolUseRequestMessageContent'
+            - $ref: '#/components/schemas/ToolUseResultMessageContent'
         labels:
           type: array
           description: The list of possible classification labels with optional descriptions (2-50 labels required)
@@ -2643,14 +2672,14 @@ components:
           type: string
           description: 'The type of classification: SINGLE_LABEL or MULTI_LABEL'
           enum:
-            - SINGLE_LABEL
-            - MULTI_LABEL
+          - SINGLE_LABEL
+          - MULTI_LABEL
         instructions:
           type: string
           description: Optional instructions for classification behavior
         model:
           type: string
-          description: 'The ID of the model to use (optional, uses default if not specified)'
+          description: "The ID of the model to use (optional, uses default if not specified)"
         modelConfiguration:
           type: object
           additionalProperties: {}
@@ -2663,9 +2692,9 @@ components:
           $ref: '#/components/schemas/ReasoningConfig'
           description: Configuration for reasoning behavior
       required:
-        - classificationType
-        - input
-        - labels
+      - classificationType
+      - input
+      - labels
     ClassificationResponse:
       type: object
       description: |-
@@ -2682,8 +2711,8 @@ components:
           type: string
           description: The type of classification (SINGLE_LABEL or MULTI_LABEL).
           enum:
-            - SINGLE_LABEL
-            - MULTI_LABEL
+          - SINGLE_LABEL
+          - MULTI_LABEL
         model:
           type: string
           description: The ID of the model used for classification.

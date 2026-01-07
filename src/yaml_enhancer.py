@@ -347,3 +347,82 @@ class YAMLEnhancer:
             priorities.append('schemas')
 
         return priorities
+
+    def fix_server_url_templates(self, yaml_path: str, parser: Optional[OpenAPIParser] = None) -> Dict[str, Any]:
+        """
+        Fix server URL templates that use angle brackets <variable> instead of {variable}.
+
+        Args:
+            yaml_path: Path to the YAML file
+            parser: Optional pre-initialized OpenAPIParser
+
+        Returns:
+            Dictionary of fixes applied with paths and new values
+        """
+        import re
+
+        fixes = {}
+
+        try:
+            if parser is None:
+                parser = OpenAPIParser(yaml_path)
+
+            spec = parser.spec
+            servers = spec.get('servers', [])
+
+            for idx, server in enumerate(servers):
+                url = server.get('url', '')
+
+                # Check if URL contains angle bracket variables like <subdomain>
+                angle_bracket_pattern = r'<([a-zA-Z_][a-zA-Z0-9_]*)>'
+                matches = re.findall(angle_bracket_pattern, url)
+
+                if matches:
+                    # Convert angle brackets to curly braces
+                    fixed_url = re.sub(r'<([a-zA-Z_][a-zA-Z0-9_]*)>', r'{\1}', url)
+
+                    # Create variables section if it doesn't exist
+                    if 'variables' not in server:
+                        from ruamel.yaml.comments import CommentedMap
+
+                        variables = CommentedMap()
+                        for var_name in matches:
+                            var_spec = CommentedMap()
+                            var_spec['default'] = self._get_default_value_for_variable(var_name)
+                            var_spec['description'] = f'Your {var_name.replace("_", " ")}'
+                            variables[var_name] = var_spec
+
+                        fixes[f'servers.{idx}.url'] = fixed_url
+                        fixes[f'servers.{idx}.variables'] = variables
+
+                        Log.print_blue(f"Fixed server URL template: {url} → {fixed_url}")
+
+            return fixes
+
+        except Exception as e:
+            Log.print_yellow(f"Error fixing server URL templates: {e}")
+            return {}
+
+    def _get_default_value_for_variable(self, var_name: str) -> str:
+        """
+        Get a sensible default value for a server URL variable.
+
+        Args:
+            var_name: Variable name (e.g., 'subdomain', 'region')
+
+        Returns:
+            Default value string
+        """
+        # Common variable name mappings
+        defaults = {
+            'subdomain': 'your-instance',
+            'instance': 'your-instance',
+            'region': 'us-east-1',
+            'environment': 'production',
+            'env': 'prod',
+            'domain': 'example',
+            'tenant': 'your-tenant',
+            'workspace': 'default'
+        }
+
+        return defaults.get(var_name.lower(), f'your-{var_name.replace("_", "-")}')

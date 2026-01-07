@@ -81,13 +81,32 @@ def main():
 
             Log.print_blue(f"Found {len(endpoints)} endpoints in {os.path.basename(yaml_file)}")
 
+            # Fix server URL templates (angle brackets to curly braces)
+            try:
+                server_fixes = yaml_enhancer.fix_server_url_templates(yaml_file, parser)
+            except Exception as e:
+                Log.print_red(f"Error fixing server URLs: {e}")
+                server_fixes = {}
+
             # Analyze gaps
             gaps = yaml_enhancer.analyze_yaml_gaps(yaml_file, parser)
 
-            if not gaps.has_gaps():
+            # If no gaps and no server fixes, nothing to do
+            if not gaps.has_gaps() and not server_fixes:
                 Log.print_green(f"No gaps found in {os.path.basename(yaml_file)} - YAML is complete!")
                 result['success'] = True
                 result['enhancements'] = 0
+                return result
+
+            # If no gaps but we have server fixes, apply them
+            if not gaps.has_gaps() and server_fixes:
+                Log.print_blue(f"Applying {len(server_fixes)} server URL fixes to {os.path.basename(yaml_file)}")
+                output_path = get_output_path(yaml_file, env_vars.yaml_output_path, env_vars.yaml_input_path)
+                success = yaml_preserver.apply_enhancements(yaml_file, server_fixes, output_path)
+                if success:
+                    Log.print_green(f"Successfully applied server URL fixes to {os.path.basename(yaml_file)}")
+                    result['success'] = True
+                    result['enhancements'] = len(server_fixes)
                 return result
 
             Log.print_yellow(f"Found {gaps.get_gap_count()} gaps: {gaps.get_summary()}")
@@ -115,9 +134,12 @@ def main():
             # (Some paths from generator may need conversion)
             converted_enhancements = convert_enhancement_paths(enhancements, parser)
 
+            # Merge server URL fixes with enhancements
+            all_enhancements = {**server_fixes, **converted_enhancements}
+
             success = yaml_preserver.apply_enhancements(
                 yaml_file,
-                converted_enhancements,
+                all_enhancements,
                 output_path
             )
 
@@ -137,7 +159,9 @@ def main():
                 result['error'] = 'apply_failed'
 
         except Exception as e:
+            import traceback
             Log.print_red(f"Error processing {yaml_file}: {e}")
+            Log.print_red(f"Traceback:\n{traceback.format_exc()}")
             result['error'] = str(e)
 
         return result
