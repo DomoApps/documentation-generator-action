@@ -1,6 +1,7 @@
-name: Sync API Documentation from Source Repo
+name: Sync Enhanced YAML Specifications from Source Repo
 
 # This workflow runs autonomously in the destination repo - NO secrets needed in source repo!
+# It enhances OpenAPI YAML files with AI-generated descriptions and syncs them to the destination.
 # It can be triggered three ways:
 # 1. Schedule: Runs every 6 hours, checks source repo for changes
 # 2. Manual: Use workflow_dispatch to run on demand
@@ -15,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       force_regenerate:
-        description: 'Force regenerate all docs (ignore change detection)'
+        description: 'Force re-enhance all YAML files (ignore change detection)'
         required: false
         type: boolean
         default: false
@@ -64,7 +65,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyyaml
 
-      # Cross-repo change detection: Compare source YAML timestamps with destination markdown
+      # Cross-repo change detection: Compare source YAML timestamps with destination YAML
       # This is needed because we're syncing between two repos - git diff wouldn't detect these changes
       - name: Detect Changed YAML Files
         id: detect
@@ -72,7 +73,6 @@ jobs:
           python .github/scripts/detect_yaml_changes.py \
             --source source-repo/api-docs/public \
             --dest docs/API-Reference/Product-APIs \
-            --mapping .github/doc-mapping.json \
             --force ${{ github.event.inputs.force_regenerate || 'false' }}
 
       - name: Check if Changes Detected
@@ -98,8 +98,8 @@ jobs:
             echo "EOF"
           } >> $GITHUB_OUTPUT
 
-      # Generate documentation (action only generates, does not create PRs)
-      - name: Generate Documentation
+      # Enhance YAML files with AI-generated descriptions (action only enhances, does not create PRs)
+      - name: Enhance YAML Files
         if: steps.check.outputs.has_changes == 'true'
         uses: DomoApps/documentation-generator-action@main
         with:
@@ -108,45 +108,46 @@ jobs:
 
           # Paths
           yaml_input_path: './source-repo/api-docs/public'
-          output_path: './temp-docs'
-          template_path: 'default'  # or path to custom template
+          yaml_output_path: './temp-enhanced-yaml'  # Temporary directory for enhanced YAML
+
+          # Enhancement Configuration
+          enhancement_mode: 'missing_only'  # Only enhance missing descriptions
+          quality_threshold: '85'  # Minimum quality score for AI-generated descriptions
 
           # AI Configuration
           openai_model: 'gpt-4o'  # or 'gpt-4', 'gpt-3.5-turbo'
           max_iterations: '3'  # Max refinement iterations (higher = better quality, more cost)
-          completeness_threshold: '90'  # Quality score threshold (0-100)
+          completeness_threshold: '90'  # Overall quality threshold (0-100)
           timeout_minutes: '30'  # Max processing time
 
           # Change Detection
           changed_files: ${{ steps.read-changes.outputs.changed_files }}
           process_changed_only: 'false'  # We already filtered via detect_yaml_changes.py
 
-          # PR creation disabled - we handle it below with sync
+          # PR creation disabled - we handle it below with individual PRs
           create_pull_request: 'false'
 
-      # Create individual PRs with proper file mapping
-      - name: Create Individual PRs with File Sync
+      # Create individual PRs for each enhanced YAML file
+      - name: Create Individual PRs for Enhanced YAML
         if: steps.check.outputs.has_changes == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           python .github/scripts/create_individual_prs.py \
             --changed-list changed_files.txt \
-            --temp-dir ./temp-docs \
+            --temp-dir ./temp-enhanced-yaml \
             --dest-dir docs/API-Reference/Product-APIs \
-            --mapping-file .github/doc-mapping.json \
-            --sync-script .github/scripts/sync_to_destination.py \
             --base-branch master \
-            --pr-branch-prefix doc-bot \
+            --pr-branch-prefix yaml-enhance \
             --openai-model gpt-4o \
             --max-iterations 3 \
-            --completeness-threshold 90 \
+            --quality-threshold 85 \
             --repo DomoApps/domo-developer-portal
 
       - name: Summary
         if: always()
         run: |
-          echo "## 📚 Documentation Sync Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## 📝 YAML Enhancement Sync Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ "${{ steps.check.outputs.has_changes }}" == "true" ]; then
             echo "✅ Changes detected and processed" >> $GITHUB_STEP_SUMMARY
@@ -159,10 +160,10 @@ jobs:
             fi
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "### Actions Taken:" >> $GITHUB_STEP_SUMMARY
-            echo "- Generated documentation from OpenAPI/YAML specs" >> $GITHUB_STEP_SUMMARY
-            echo "- Applied file mapping configuration to destination paths" >> $GITHUB_STEP_SUMMARY
+            echo "- Enhanced OpenAPI YAML files with AI-generated descriptions" >> $GITHUB_STEP_SUMMARY
+            echo "- Synced enhanced YAML files to destination (preserving structure)" >> $GITHUB_STEP_SUMMARY
             echo "- Created individual PR per file (skipped files with existing open PRs)" >> $GITHUB_STEP_SUMMARY
-            echo "- Committed files to proper destination locations (not temp-docs)" >> $GITHUB_STEP_SUMMARY
+            echo "- Committed enhanced YAML files to destination paths" >> $GITHUB_STEP_SUMMARY
           else
-            echo "ℹ️ No changes detected - documentation is up to date" >> $GITHUB_STEP_SUMMARY
+            echo "ℹ️ No changes detected - YAML files are up to date" >> $GITHUB_STEP_SUMMARY
           fi
