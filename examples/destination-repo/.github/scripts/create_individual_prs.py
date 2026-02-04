@@ -1,54 +1,50 @@
 #!/usr/bin/env python3
 """
-Create individual pull requests for each changed YAML file with proper file mapping.
+Create individual pull requests for each enhanced YAML file.
 
 This script:
 1. Reads the list of changed YAML files
 2. For each file:
    - Checks if an open PR already exists (skip if so)
    - Creates a new branch for the file
-   - Runs the sync script to map temp docs to destination paths
-   - Commits the changes to the destination paths
+   - Syncs the enhanced YAML to destination (same filename)
+   - Commits the changes
    - Creates a PR for the changes
 3. Handles git operations, branch management, and PR creation
 """
 
 import os
 import sys
-import json
+import shutil
 import subprocess
 import argparse
 from pathlib import Path
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Optional
 
 
 class PRCreator:
-    """Handles creation of individual PRs with file syncing"""
+    """Handles creation of individual PRs for enhanced YAML files"""
 
     def __init__(
         self,
         changed_files_list: str,
         temp_dir: str,
         dest_dir: str,
-        mapping_file: str,
-        sync_script: str,
         base_branch: str = "master",
-        pr_branch_prefix: str = "doc-bot",
+        pr_branch_prefix: str = "yaml-enhance",
         openai_model: str = "gpt-4o",
         max_iterations: str = "3",
-        completeness_threshold: str = "90",
+        quality_threshold: str = "85",
         repo: str = None
     ):
         self.changed_files_list = changed_files_list
         self.temp_dir = temp_dir
         self.dest_dir = dest_dir
-        self.mapping_file = mapping_file
-        self.sync_script = sync_script
         self.base_branch = base_branch
         self.pr_branch_prefix = pr_branch_prefix
         self.openai_model = openai_model
         self.max_iterations = max_iterations
-        self.completeness_threshold = completeness_threshold
+        self.quality_threshold = quality_threshold
         self.repo = repo
 
         self.processed = 0
@@ -138,46 +134,36 @@ class PRCreator:
             print(f"❌ Failed to create/checkout branch: {e}")
             return False
 
-    def sync_file(self, yaml_file: str) -> bool:
-        """Run sync script for a single file"""
-        # Create temp file list with single file
-        temp_file_list = "temp_single_file.txt"
+    def sync_file(self, yaml_file: str, yaml_filename: str) -> Optional[str]:
+        """Copy enhanced YAML file to destination"""
         try:
-            with open(temp_file_list, 'w') as f:
-                f.write(yaml_file + '\n')
+            # Source: enhanced YAML in temp directory
+            enhanced_yaml = os.path.join(self.temp_dir, yaml_filename)
 
-            print(f"🔄 Syncing file to destination with mapping...")
-            result = self.run_command([
-                "python",
-                self.sync_script,
-                "--generated", self.temp_dir,
-                "--destination", self.dest_dir,
-                "--mapping", self.mapping_file,
-                "--changed-list", temp_file_list
-            ], check=False)
+            if not os.path.exists(enhanced_yaml):
+                print(f"❌ Enhanced file not found: {enhanced_yaml}")
+                return None
 
-            os.remove(temp_file_list)
+            # Destination: same filename in destination directory
+            dest_path = os.path.join(self.dest_dir, yaml_filename)
 
-            if result.returncode != 0:
-                print(f"❌ Sync script failed")
-                return False
+            # Ensure destination directory exists
+            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
 
-            return True
+            # Copy file
+            shutil.copy2(enhanced_yaml, dest_path)
+            print(f"🔄 Synced: {enhanced_yaml} -> {dest_path}")
+
+            return dest_path
         except Exception as e:
             print(f"❌ Sync failed: {e}")
-            if os.path.exists(temp_file_list):
-                os.remove(temp_file_list)
-            return False
+            return None
 
-    def stage_and_commit(self, yaml_file: str, file_name: str) -> Optional[str]:
+    def stage_and_commit(self, yaml_file: str, file_name: str, dest_path: str) -> bool:
         """Stage changes and commit"""
         try:
-            # Stage destination directory files
-            self.git_command(["add", f"{self.dest_dir}/**/*.md"], check=False)
-            self.git_command(["add", f"{self.dest_dir}/*.md"], check=False)
-
-            # Stage mapping file if it was updated
-            self.git_command(["add", self.mapping_file], check=False)
+            # Stage destination file
+            self.git_command(["add", dest_path])
 
             # Check if there are changes to commit
             result = self.git_command([
@@ -186,11 +172,7 @@ class PRCreator:
 
             if not result.stdout.strip():
                 print(f"ℹ️ No changes to commit for {file_name}")
-                return None
-
-            # Get the mapped file name for commit message
-            mapped_files = [line for line in result.stdout.strip().split('\n') if line.endswith('.md')]
-            mapped_file = mapped_files[0] if mapped_files else "unknown"
+                return False
 
             # Configure git
             self.git_command(["config", "user.name", "github-actions[bot]"])
@@ -199,16 +181,16 @@ class PRCreator:
             # Commit
             self.git_command([
                 "commit",
-                "-m", f"📚 Update documentation for {file_name}",
-                "-m", "Auto-generated from YAML specification",
+                "-m", f"📝 Enhance YAML specification: {file_name}",
+                "-m", "AI-enhanced OpenAPI specification with improved descriptions",
                 "-m", f"Source: {yaml_file}",
-                "-m", f"Destination: {mapped_file}"
+                "-m", f"Destination: {dest_path}"
             ])
 
-            return mapped_file
+            return True
         except subprocess.CalledProcessError as e:
             print(f"⚠️ Commit failed: {e}")
-            return None
+            return False
 
     def push_branch(self, branch_name: str) -> bool:
         """Push branch to remote"""
@@ -219,32 +201,39 @@ class PRCreator:
             print(f"❌ Push failed: {e}")
             return False
 
-    def create_pr(self, branch_name: str, file_name: str, yaml_file: str, mapped_file: str) -> Optional[str]:
+    def create_pr(self, branch_name: str, file_name: str, yaml_file: str, dest_path: str) -> Optional[str]:
         """Create a pull request"""
         try:
-            pr_body = f"""## 🤖 Auto-Generated Documentation Update
+            pr_body = f"""## 📝 AI-Enhanced OpenAPI Specification
 
-This PR contains automatically generated documentation for a single API spec.
+This PR contains an AI-enhanced OpenAPI YAML specification with improved descriptions.
 
 ### 📊 File Details
 - **Source File:** `{yaml_file}`
-- **Generated File:** `{mapped_file}`
+- **Enhanced File:** `{dest_path}`
 - **AI Model Used:** {self.openai_model}
 
+### 🎯 Enhancements Applied
+- Missing info.description fields
+- Parameter descriptions
+- Schema descriptions
+- Property descriptions
+- Tag descriptions
+
 ### 🔄 Process Details
-- Generated documentation from OpenAPI/YAML specification
-- Applied file mapping configuration
+- Enhanced with AI-generated contextual descriptions
+- Original YAML structure, comments, and formatting preserved
+- Quality Threshold: {self.quality_threshold}%
 - Max Iterations: {self.max_iterations}
-- Quality Threshold: {self.completeness_threshold}%
 
 ---
-🤖 This PR was created automatically by the documentation sync workflow.
+🤖 This PR was created automatically by the YAML enhancement workflow.
 
-Please review the generated documentation before merging."""
+All enhancements have been validated for quality and accuracy. Please review before merging."""
 
             cmd = [
                 "pr", "create",
-                "--title", f"📚 Update documentation for {file_name}",
+                "--title", f"📝 Enhance OpenAPI spec: {file_name}",
                 "--body", pr_body,
                 "--head", branch_name,
                 "--base", self.base_branch
@@ -277,17 +266,10 @@ Please review the generated documentation before merging."""
         file_name = os.path.basename(yaml_file)
         file_base = Path(file_name).stem
         branch_name = f"{self.pr_branch_prefix}/{file_base}"
-        temp_md = os.path.join(self.temp_dir, f"{file_base}.md")
 
         print("---")
         print(f"Processing: {file_name}")
         print(f"Branch: {branch_name}")
-
-        # Check if generated file exists
-        if not os.path.exists(temp_md):
-            print(f"⚠️ Generated file not found: {temp_md}")
-            self.failed += 1
-            return False
 
         # Check if PR already exists
         pr_number = self.check_pr_exists(branch_name)
@@ -302,15 +284,15 @@ Please review the generated documentation before merging."""
             self.return_to_base_branch()
             return False
 
-        # Run sync script
-        if not self.sync_file(yaml_file):
+        # Sync enhanced YAML file
+        dest_path = self.sync_file(yaml_file, file_name)
+        if not dest_path:
             self.failed += 1
             self.return_to_base_branch()
             return False
 
         # Stage and commit
-        mapped_file = self.stage_and_commit(yaml_file, file_name)
-        if not mapped_file:
+        if not self.stage_and_commit(yaml_file, file_name, dest_path):
             self.return_to_base_branch()
             return True  # No changes, not a failure
 
@@ -321,7 +303,7 @@ Please review the generated documentation before merging."""
             return False
 
         # Create PR
-        pr_url = self.create_pr(branch_name, file_name, yaml_file, mapped_file)
+        pr_url = self.create_pr(branch_name, file_name, yaml_file, dest_path)
         if pr_url:
             print(f"✅ Created PR: {pr_url}")
             self.processed += 1
@@ -335,7 +317,7 @@ Please review the generated documentation before merging."""
 
     def process_all_files(self) -> Dict[str, int]:
         """Process all files in the changed files list"""
-        print("📄 Creating individual PRs with proper file mapping...")
+        print("📄 Creating individual PRs for enhanced YAML files...")
 
         if not os.path.exists(self.changed_files_list):
             print(f"❌ Changed files list not found: {self.changed_files_list}")
@@ -373,7 +355,7 @@ Please review the generated documentation before merging."""
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Create individual PRs for changed YAML files with file mapping'
+        description='Create individual PRs for enhanced YAML files'
     )
     parser.add_argument(
         '--changed-list',
@@ -383,22 +365,12 @@ def main():
     parser.add_argument(
         '--temp-dir',
         required=True,
-        help='Directory with generated markdown files'
+        help='Directory with enhanced YAML files'
     )
     parser.add_argument(
         '--dest-dir',
         required=True,
-        help='Destination directory for markdown files'
-    )
-    parser.add_argument(
-        '--mapping-file',
-        required=True,
-        help='Path to mapping configuration file'
-    )
-    parser.add_argument(
-        '--sync-script',
-        required=True,
-        help='Path to sync_to_destination.py script'
+        help='Destination directory for YAML files'
     )
     parser.add_argument(
         '--base-branch',
@@ -407,13 +379,13 @@ def main():
     )
     parser.add_argument(
         '--pr-branch-prefix',
-        default='doc-bot',
-        help='Branch name prefix for PRs (default: doc-bot)'
+        default='yaml-enhance',
+        help='Branch name prefix for PRs (default: yaml-enhance)'
     )
     parser.add_argument(
         '--openai-model',
         default='gpt-4o',
-        help='OpenAI model used for generation (for PR description)'
+        help='OpenAI model used for enhancement (for PR description)'
     )
     parser.add_argument(
         '--max-iterations',
@@ -421,9 +393,9 @@ def main():
         help='Max iterations used (for PR description)'
     )
     parser.add_argument(
-        '--completeness-threshold',
-        default='90',
-        help='Completeness threshold used (for PR description)'
+        '--quality-threshold',
+        default='85',
+        help='Quality threshold used (for PR description)'
     )
     parser.add_argument(
         '--repo',
@@ -437,13 +409,11 @@ def main():
         changed_files_list=args.changed_list,
         temp_dir=args.temp_dir,
         dest_dir=args.dest_dir,
-        mapping_file=args.mapping_file,
-        sync_script=args.sync_script,
         base_branch=args.base_branch,
         pr_branch_prefix=args.pr_branch_prefix,
         openai_model=args.openai_model,
         max_iterations=args.max_iterations,
-        completeness_threshold=args.completeness_threshold,
+        quality_threshold=args.quality_threshold,
         repo=args.repo
     )
 

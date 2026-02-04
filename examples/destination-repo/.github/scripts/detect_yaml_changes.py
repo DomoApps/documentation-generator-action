@@ -1,68 +1,19 @@
 #!/usr/bin/env python3
 """
-Detect changed YAML files in source repository and determine which need regeneration.
+Detect changed YAML files in source repository and determine which need enhancement.
 
 This script:
-1. Compares source YAML files with destination markdown files
-2. Checks file modification times and content hashes
-3. Outputs list of files that need regeneration
+1. Compares source YAML files with destination YAML files
+2. Checks file modification times
+3. Outputs list of files that need enhancement
 4. Creates summary of changes for PR description
 """
 
 import os
 import sys
-import json
-import hashlib
 import argparse
 from pathlib import Path
 from typing import List, Dict, Tuple
-
-
-def calculate_file_hash(file_path: str) -> str:
-    """Calculate SHA256 hash of file content"""
-    sha256 = hashlib.sha256()
-    try:
-        with open(file_path, 'rb') as f:
-            while chunk := f.read(8192):
-                sha256.update(chunk)
-        return sha256.hexdigest()
-    except Exception as e:
-        print(f"Error hashing {file_path}: {e}", file=sys.stderr)
-        return ""
-
-
-def load_mapping_config(mapping_file: str) -> Dict:
-    """Load the file mapping configuration"""
-    if os.path.exists(mapping_file):
-        with open(mapping_file, 'r') as f:
-            return json.load(f)
-    else:
-        # Return default structure if config doesn't exist
-        return {
-            "source_base": "api-docs/public",
-            "dest_base": "docs/API-Reference/Product-APIs",
-            "file_mappings": {},
-            "default_rule": {
-                "pattern": "*.yaml",
-                "output": "{basename}.md"
-            }
-        }
-
-
-def get_destination_path(source_file: str, mapping_config: Dict, source_base: str) -> str:
-    """Determine destination path for a source file based on mapping config"""
-    # Get relative path from source base
-    rel_path = os.path.relpath(source_file, source_base)
-    base_name = Path(rel_path).stem
-
-    # Check if explicit mapping exists
-    if rel_path in mapping_config.get("file_mappings", {}):
-        return mapping_config["file_mappings"][rel_path]
-
-    # Apply default rule
-    default_rule = mapping_config.get("default_rule", {})
-    output_pattern = default_rule.get("output", "{basename}.md")
-    return output_pattern.replace("{basename}", base_name)
 
 
 def find_yaml_files(source_dir: str) -> List[str]:
@@ -79,11 +30,10 @@ def find_yaml_files(source_dir: str) -> List[str]:
 def detect_changes(
     source_dir: str,
     dest_dir: str,
-    mapping_config: Dict,
     force: bool = False
-) -> Tuple[List[str], Dict[str, str]]:
+) -> Tuple[List[str], Dict[str, List[str]]]:
     """
-    Detect which YAML files need regeneration
+    Detect which YAML files need enhancement
 
     Returns:
         Tuple of (changed_files, summary_dict)
@@ -99,22 +49,22 @@ def detect_changes(
     print(f"Found {len(yaml_files)} YAML files in source")
 
     for yaml_file in yaml_files:
-        rel_path = os.path.relpath(yaml_file, source_dir)
-        dest_file_name = get_destination_path(yaml_file, mapping_config, source_dir)
-        dest_file_path = os.path.join(dest_dir, dest_file_name)
+        # Get filename (same in source and destination)
+        yaml_filename = os.path.basename(yaml_file)
+        dest_file_path = os.path.join(dest_dir, yaml_filename)
 
         # Check if destination exists
         if not os.path.exists(dest_file_path):
-            print(f"NEW: {rel_path} -> {dest_file_name}")
+            print(f"NEW: {yaml_filename}")
             changed_files.append(yaml_file)
-            summary["new_files"].append(rel_path)
+            summary["new_files"].append(yaml_filename)
             continue
 
         # If force flag set, mark all as changed
         if force:
-            print(f"FORCE: {rel_path}")
+            print(f"FORCE: {yaml_filename}")
             changed_files.append(yaml_file)
-            summary["modified_files"].append(rel_path)
+            summary["modified_files"].append(yaml_filename)
             continue
 
         # Compare modification times
@@ -122,12 +72,12 @@ def detect_changes(
         dest_mtime = os.path.getmtime(dest_file_path)
 
         if source_mtime > dest_mtime:
-            print(f"MODIFIED: {rel_path} (source newer than dest)")
+            print(f"MODIFIED: {yaml_filename} (source newer than destination)")
             changed_files.append(yaml_file)
-            summary["modified_files"].append(rel_path)
+            summary["modified_files"].append(yaml_filename)
         else:
-            print(f"UNCHANGED: {rel_path}")
-            summary["unchanged_files"].append(rel_path)
+            print(f"UNCHANGED: {yaml_filename}")
+            summary["unchanged_files"].append(yaml_filename)
 
     return changed_files, summary
 
@@ -137,7 +87,7 @@ def create_summary_markdown(summary: Dict[str, List[str]]) -> str:
     lines = []
 
     total_changes = len(summary["new_files"]) + len(summary["modified_files"])
-    lines.append(f"**Total files requiring update:** {total_changes}")
+    lines.append(f"**Total files requiring enhancement:** {total_changes}")
     lines.append("")
 
     if summary["new_files"]:
@@ -162,21 +112,16 @@ def create_summary_markdown(summary: Dict[str, List[str]]) -> str:
 def main():
     parser = argparse.ArgumentParser(description='Detect changed YAML files')
     parser.add_argument('--source', required=True, help='Source directory with YAML files')
-    parser.add_argument('--dest', required=True, help='Destination directory with markdown files')
-    parser.add_argument('--mapping', required=True, help='Path to mapping configuration file')
-    parser.add_argument('--force', default='false', help='Force regenerate all files')
+    parser.add_argument('--dest', required=True, help='Destination directory with YAML files')
+    parser.add_argument('--force', default='false', help='Force re-enhance all files')
 
     args = parser.parse_args()
     force = args.force.lower() == 'true'
-
-    # Load mapping configuration
-    mapping_config = load_mapping_config(args.mapping)
 
     # Detect changes
     changed_files, summary = detect_changes(
         args.source,
         args.dest,
-        mapping_config,
         force=force
     )
 
@@ -196,7 +141,7 @@ def main():
         f.write(f"summary<<EOF\n{summary_md}\nEOF\n")
 
     print(f"\n{'='*60}")
-    print(f"Detection complete: {len(changed_files)} files need regeneration")
+    print(f"Detection complete: {len(changed_files)} files need enhancement")
     print(f"{'='*60}")
 
     # Exit with appropriate code

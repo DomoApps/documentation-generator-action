@@ -155,6 +155,10 @@ class OpenAPIParser:
         for path, path_item in paths.items():
             # Skip common fields that aren't HTTP methods
             common_params = path_item.get("parameters", [])
+            # Handle malformed parameters (should be list, but might be dict)
+            if isinstance(common_params, dict):
+                Log.print_yellow(f"Warning: path-level parameters is a dict instead of list for {path}, skipping")
+                common_params = []
 
             for method in ["get", "post", "put", "delete", "patch", "options", "head"]:
                 if method in path_item:
@@ -185,7 +189,12 @@ class OpenAPIParser:
         endpoint.tags = operation.get("tags", [])
 
         # Parse parameters
-        all_params = common_params + operation.get("parameters", [])
+        operation_params = operation.get("parameters", [])
+        # Handle malformed parameters (should be list, but might be dict)
+        if isinstance(operation_params, dict):
+            Log.print_yellow(f"Warning: parameters is a dict instead of list for {method.upper()} {path}, skipping")
+            operation_params = []
+        all_params = common_params + operation_params
         self._parse_parameters(endpoint, all_params)
 
         # Parse request body

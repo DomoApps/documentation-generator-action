@@ -1,80 +1,87 @@
 # Destination Repo Scripts
 
-These scripts are designed to be copied to your destination repository (e.g., `DomoApps/domo-developer-portal`) to handle cross-repo documentation synchronization.
+These scripts are designed to be copied to your destination repository (e.g., `DomoApps/domo-developer-portal`) to handle cross-repo YAML enhancement synchronization.
+
+## Overview
+
+These scripts work together to:
+1. Detect which YAML files in the source repo have changed
+2. Enhance them with AI-generated descriptions
+3. Sync the enhanced YAML files to the destination repo
+4. Create individual PRs for review
 
 ## Scripts
 
 ### 1. `detect_yaml_changes.py`
 
-**Purpose:** Detects which YAML files in the source repo have changed compared to their corresponding markdown files in the destination repo.
+**Purpose:** Detects which YAML files in the source repo have changed compared to their corresponding YAML files in the destination repo.
 
 **How it works:**
-- Compares modification timestamps between source YAML and destination markdown files
-- Uses the mapping configuration to determine which files to compare
-- Outputs a list of files that need regeneration
+- Compares modification timestamps between source and destination YAML files
+- Files have the same name in both source and destination
+- Outputs a list of files that need enhancement
 
 **Usage:**
 ```bash
 python detect_yaml_changes.py \
   --source source-repo/api-docs/public \
   --dest docs/API-Reference/Product-APIs \
-  --mapping .github/doc-mapping.json \
   --force false
 ```
 
 **Arguments:**
 - `--source`: Path to source repo YAML directory
-- `--dest`: Path to destination repo markdown directory
-- `--mapping`: Path to mapping configuration file
-- `--force`: Set to `true` to force regeneration of all files
+- `--dest`: Path to destination repo YAML directory
+- `--force`: Set to `true` to force re-enhancement of all files
 
 **Output:**
 - Creates `changed_files.txt` with list of YAML files to process
+- Outputs summary to GitHub Actions output
 
 ---
 
 ### 2. `sync_to_destination.py`
 
-**Purpose:** Maps generated markdown files from temp directory to their proper destination paths based on mapping configuration.
+**Purpose:** Copies enhanced YAML files from temp directory to destination, preserving filenames.
 
 **How it works:**
-- Reads the mapping configuration to determine destination paths
-- Copies files from temp directory to mapped destinations
-- Auto-updates mapping config for new files
-- Preserves directory structure in destination
+- Reads list of changed YAML files
+- Copies enhanced YAML files from temp directory to destination
+- Files maintain the same name (no mapping needed)
+- Preserves YAML structure, comments, and formatting
 
 **Usage:**
 ```bash
 python sync_to_destination.py \
-  --generated ./temp-docs \
+  --source source-repo/api-docs/public \
+  --enhanced ./temp-enhanced-yaml \
   --destination docs/API-Reference/Product-APIs \
-  --mapping .github/doc-mapping.json \
   --changed-list changed_files.txt
 ```
 
 **Arguments:**
-- `--generated`: Directory with generated markdown files (temp location)
-- `--destination`: Base destination directory for markdown files
-- `--mapping`: Path to mapping configuration file
+- `--source`: Source YAML directory (for reference)
+- `--enhanced`: Directory with enhanced YAML files (temp location)
+- `--destination`: Destination directory for YAML files
 - `--changed-list`: File containing list of changed YAML files to sync
 
 **Output:**
-- Copies/moves files to proper destinations
-- Updates mapping configuration if new files are added
+- Copies enhanced YAML files to destination
+- Prints summary of synced files
 
 ---
 
 ### 3. `create_individual_prs.py`
 
-**Purpose:** Creates individual pull requests for each changed file with proper file mapping and duplicate prevention.
+**Purpose:** Creates individual pull requests for each enhanced YAML file with duplicate prevention.
 
 **How it works:**
 - Reads list of changed YAML files
 - For each file:
   - Checks if an open PR already exists (skip if so)
   - Creates a new git branch
-  - Calls `sync_to_destination.py` to map files to destinations
-  - Commits changes to destination paths (not temp paths)
+  - Copies enhanced YAML to destination (same filename)
+  - Commits changes
   - Creates a PR with detailed description
 - Handles all git operations, error recovery, and branch management
 
@@ -82,28 +89,26 @@ python sync_to_destination.py \
 ```bash
 python create_individual_prs.py \
   --changed-list changed_files.txt \
-  --temp-dir ./temp-docs \
+  --temp-dir ./temp-enhanced-yaml \
   --dest-dir docs/API-Reference/Product-APIs \
-  --mapping-file .github/doc-mapping.json \
-  --sync-script .github/scripts/sync_to_destination.py \
   --base-branch master \
-  --pr-branch-prefix doc-bot \
+  --pr-branch-prefix yaml-enhance \
   --openai-model gpt-4o \
   --max-iterations 3 \
-  --completeness-threshold 90
+  --quality-threshold 85 \
+  --repo DomoApps/domo-developer-portal
 ```
 
 **Arguments:**
 - `--changed-list`: File containing list of changed YAML files
-- `--temp-dir`: Directory with generated markdown files
-- `--dest-dir`: Destination directory for markdown files
-- `--mapping-file`: Path to mapping configuration file
-- `--sync-script`: Path to sync_to_destination.py script
+- `--temp-dir`: Directory with enhanced YAML files
+- `--dest-dir`: Destination directory for YAML files
 - `--base-branch`: Base branch to create PRs from (default: master)
-- `--pr-branch-prefix`: Branch name prefix for PRs (default: doc-bot)
+- `--pr-branch-prefix`: Branch name prefix for PRs (default: yaml-enhance)
 - `--openai-model`: AI model used (for PR description)
 - `--max-iterations`: Max iterations used (for PR description)
-- `--completeness-threshold`: Quality threshold (for PR description)
+- `--quality-threshold`: Quality threshold used (for PR description)
+- `--repo`: GitHub repository in owner/repo format (optional)
 
 **Output:**
 - Creates individual PRs for each file
@@ -115,8 +120,8 @@ python create_individual_prs.py \
 - ✅ Comprehensive error handling and recovery
 - ✅ Detailed logging for debugging
 - ✅ Git branch management (create/checkout/cleanup)
-- ✅ Proper file mapping integration
-- ✅ Commits to destination paths, not temp paths
+- ✅ Simple 1:1 file syncing (no mapping needed)
+- ✅ Preserves YAML structure and comments
 
 ---
 
@@ -135,35 +140,18 @@ All scripts require:
 These scripts are designed to work together in the following order:
 
 1. **detect_yaml_changes.py** - Identifies files that need updates
-2. **Documentation generation** - Action generates markdown to temp directory
-3. **create_individual_prs.py** - Creates PRs with proper file mapping
-   - Internally calls **sync_to_destination.py** for each file
+2. **YAML Enhancement** - Action enhances YAML files with AI-generated descriptions
+3. **create_individual_prs.py** - Creates PRs for enhanced YAML files
 
 See `examples/destination-repo/workflows/sync-api-docs.yml` for complete workflow example.
 
-## File Mapping Configuration
+## File Naming Convention
 
-All scripts use `.github/doc-mapping.json` for configuration:
+**Simple 1:1 mapping** - No configuration file needed!
 
-```json
-{
-  "source_base": "api-docs/public",
-  "dest_base": "docs/API-Reference/Product-APIs",
-  "file_mappings": {
-    "AI-Services.yaml": "AI-Services.md",
-    "Filesets.yaml": "Filesets.md"
-  },
-  "default_rule": {
-    "pattern": "*.yaml",
-    "output": "{basename}.md"
-  }
-}
-```
-
-- `source_base`: Base path in source repo
-- `dest_base`: Base path in destination repo
-- `file_mappings`: Explicit source → destination mappings
-- `default_rule`: Pattern for auto-mapping new files
+- Source: `source-repo/api-docs/public/ai.yaml`
+- Destination: `docs/API-Reference/Product-APIs/ai.yaml`
+- Files keep the same name, just different directories
 
 ## Testing Scripts Locally
 
@@ -171,26 +159,42 @@ All scripts use `.github/doc-mapping.json` for configuration:
 # Test detection
 python .github/scripts/detect_yaml_changes.py \
   --source ../source-repo/api-docs/public \
-  --dest docs/API-Reference/Product-APIs \
-  --mapping .github/doc-mapping.json
+  --dest docs/API-Reference/Product-APIs
 
 # Test sync
 python .github/scripts/sync_to_destination.py \
-  --generated ./temp-docs \
+  --source ../source-repo/api-docs/public \
+  --enhanced ./temp-enhanced-yaml \
   --destination docs/API-Reference/Product-APIs \
-  --mapping .github/doc-mapping.json \
   --changed-list changed_files.txt
 
 # Test PR creation (requires git repo and gh CLI)
 export GH_TOKEN="your_token"
 python .github/scripts/create_individual_prs.py \
   --changed-list changed_files.txt \
-  --temp-dir ./temp-docs \
+  --temp-dir ./temp-enhanced-yaml \
   --dest-dir docs/API-Reference/Product-APIs \
-  --mapping-file .github/doc-mapping.json \
-  --sync-script .github/scripts/sync_to_destination.py \
-  --base-branch master
+  --base-branch master \
+  --repo your-org/your-repo
 ```
+
+## What Gets Enhanced
+
+The AI enhancement process adds contextual descriptions to:
+
+- ✅ **info.title** - API title
+- ✅ **info.description** - Overall API description
+- ✅ **tags** - Tag descriptions for endpoint grouping
+- ✅ **endpoints** - Endpoint descriptions (operation summaries)
+- ✅ **parameters** - Path, query, header parameter descriptions
+- ✅ **schemas** - Component schema descriptions
+- ✅ **properties** - Schema property descriptions
+
+All enhancements:
+- Preserve original YAML structure
+- Maintain comments and formatting
+- Use contextual AI to generate meaningful descriptions
+- Undergo quality validation (default: 85% threshold)
 
 ## Troubleshooting
 
@@ -200,7 +204,7 @@ python .github/scripts/create_individual_prs.py \
 
 ### "No changes detected" but files have changed
 - Check file modification timestamps
-- Verify mapping configuration paths are correct
+- Verify source and destination paths are correct
 - Use `--force true` flag with detect_yaml_changes.py
 
 ### PR creation fails with authentication error
@@ -208,7 +212,7 @@ python .github/scripts/create_individual_prs.py \
 - Verify token has required permissions (repo, pull_requests)
 - Check GitHub App configuration if using app authentication
 
-### Files end up in wrong destination
-- Check `.github/doc-mapping.json` file mappings
-- Verify `source_base` and `dest_base` paths are correct
-- Review sync script output for mapping details
+### Enhanced YAML appears corrupted
+- Check ruamel.yaml is installed in the action environment
+- Verify original YAML was valid OpenAPI spec
+- Review enhancement logs for parsing errors

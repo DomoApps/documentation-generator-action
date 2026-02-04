@@ -2,11 +2,11 @@
 # Version 2.0, January 2004
 # Author: Jonathan Tiritilli
 
-name: 'YAML to Markdown Documentation Generator'
-description: 'Generate professional markdown documentation from YAML files using AI with iterative refinement'
+name: 'OpenAPI YAML Enhancement with AI'
+description: 'Enhance OpenAPI YAML specifications with AI-generated descriptions for improved documentation quality'
 author: 'Jonathan Tiritilli'
 branding:
-  icon: user-minus
+  icon: edit-3
   color: yellow
 
 inputs:
@@ -17,14 +17,18 @@ inputs:
     description: 'Path to directory containing YAML files'
     required: false
     default: './yaml'
-  output_path:
-    description: 'Path to output directory for generated documentation'
+  yaml_output_path:
+    description: 'Path to output directory for enhanced YAML files (empty for in-place enhancement)'
     required: false
-    default: './docs'
-  template_path:
-    description: 'Path to Handlebars template file'
+    default: ''
+  enhancement_mode:
+    description: 'Enhancement mode: missing_only (default), improve_all, specific_fields'
     required: false
-    default: 'default'
+    default: 'missing_only'
+  quality_threshold:
+    description: 'Minimum quality score (0-100) for AI-generated descriptions'
+    required: false
+    default: '85'
   openai_model:
     description: 'OpenAI model to use (gpt-4o, gpt-4, gpt-3.5-turbo)'
     required: false
@@ -54,25 +58,28 @@ inputs:
     required: false
     default: ''
   create_pull_request:
-    description: 'Create a pull request with generated documentation'
+    description: 'Create a pull request with enhanced YAML files'
     required: false
     default: 'false'
   pr_title:
     description: 'Title for the pull request'
     required: false
-    default: '📚 Update API Documentation'
+    default: '📝 Enhance OpenAPI YAML Specifications'
   pr_branch_name:
     description: 'Name for the PR branch (uses auto-generated name if not provided)'
     required: false
-    default: 'docs/update-api-docs'
+    default: 'yaml/enhance-specs'
 
 outputs:
-  documentation_path:
-    description: 'Path to generated documentation directory'
-    value: ${{ steps.generate.outputs.output_path }}
-  files_generated:
-    description: 'Number of markdown files generated'
-    value: ${{ steps.generate.outputs.files_count }}
+  enhanced_yaml_path:
+    description: 'Path to directory containing enhanced YAML files'
+    value: ${{ steps.enhance.outputs.output_path }}
+  files_enhanced:
+    description: 'Number of YAML files that were enhanced'
+    value: ${{ steps.enhance.outputs.files_count }}
+  enhancements_total:
+    description: 'Total number of descriptions added/improved'
+    value: ${{ steps.enhance.outputs.enhancements_total }}
 
 runs:
   using: composite
@@ -156,22 +163,17 @@ runs:
           echo "should_process=true" >> $GITHUB_OUTPUT
         fi
 
-    - name: Prepare directories and template
+    - name: Prepare directories
       if: steps.should-process.outputs.should_process == 'true'
       shell: bash
       run: |
-        # Create output directory
-        mkdir -p "${{ inputs.output_path }}"
-
-        # Set up template
-        if [[ "${{ inputs.template_path }}" == "default" ]]; then
-          mkdir -p templates
-          cp "${{ github.action_path }}/templates/product-api.template.md" templates/
-          TEMPLATE_PATH="./templates/product-api.template.md"
+        # Create output directory if different from input
+        if [[ -n "${{ inputs.yaml_output_path }}" && "${{ inputs.yaml_output_path }}" != "${{ inputs.yaml_input_path }}" ]]; then
+          mkdir -p "${{ inputs.yaml_output_path }}"
+          echo "📁 Output directory: ${{ inputs.yaml_output_path }}"
         else
-          TEMPLATE_PATH="${{ inputs.template_path }}"
+          echo "📁 In-place enhancement mode"
         fi
-        echo "TEMPLATE_PATH=$TEMPLATE_PATH" >> $GITHUB_ENV
 
         # Verify input directory exists
         if [[ ! -d "${{ inputs.yaml_input_path }}" ]]; then
@@ -190,82 +192,105 @@ runs:
           exit 1
         fi
 
-    - name: Generate Documentation
+    - name: Enhance YAML Files
       if: steps.should-process.outputs.should_process == 'true'
-      id: generate
+      id: enhance
       shell: bash
       env:
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
         OPENAI_MODEL: ${{ inputs.openai_model }}
         YAML_INPUT_PATH: ${{ inputs.yaml_input_path }}
-        MARKDOWN_OUTPUT_PATH: ${{ inputs.output_path }}
-        TEMPLATE_PATH: ${{ env.TEMPLATE_PATH }}
+        YAML_OUTPUT_PATH: ${{ inputs.yaml_output_path }}
+        ENHANCEMENT_MODE: ${{ inputs.enhancement_mode }}
+        QUALITY_THRESHOLD: ${{ inputs.quality_threshold }}
         MAX_ITERATIONS: ${{ inputs.max_iterations }}
         COMPLETENESS_THRESHOLD: ${{ inputs.completeness_threshold }}
         TIMEOUT_MINUTES: ${{ inputs.timeout_minutes }}
         PROCESS_CHANGED_ONLY: ${{ inputs.process_changed_only }}
         CHANGED_FILES: ${{ inputs.changed_files || steps.changed-yaml.outputs.changed_files }}
       run: |
-        echo "🚀 Starting documentation generation..."
+        echo "🚀 Starting YAML enhancement..."
         echo "📁 Input: ${{ inputs.yaml_input_path }}"
-        echo "📄 Output: ${{ inputs.output_path }}"
-        echo "🎨 Template: $TEMPLATE_PATH"
+        echo "📄 Output: ${{ inputs.yaml_output_path || 'in-place' }}"
         echo "🤖 AI Model: ${{ inputs.openai_model }}"
+        echo "🎯 Quality Threshold: ${{ inputs.quality_threshold }}%"
 
-        # Run the documentation generator
-        python "${{ github.action_path }}/src/doc_generator_main.py"
+        # Run the YAML enhancer
+        python "${{ github.action_path }}/src/yaml_enhancer_main.py"
 
-        # Count generated files
-        FILES_COUNT=$(find "${{ inputs.output_path }}" -name "*.md" | wc -l)
+        # Determine output path for counting
+        OUTPUT_DIR="${{ inputs.yaml_output_path }}"
+        if [[ -z "$OUTPUT_DIR" ]]; then
+          OUTPUT_DIR="${{ inputs.yaml_input_path }}"
+        fi
+
+        # Count enhanced files
+        FILES_COUNT=$(find "$OUTPUT_DIR" -name "*.yaml" -o -name "*.yml" | wc -l)
         echo "files_count=$FILES_COUNT" >> $GITHUB_OUTPUT
-        echo "output_path=${{ inputs.output_path }}" >> $GITHUB_OUTPUT
+        echo "output_path=$OUTPUT_DIR" >> $GITHUB_OUTPUT
 
-        echo "✅ Generated $FILES_COUNT markdown file(s)"
+        # Extract enhancements total from enhancement summary (if available)
+        if [[ -n "$ENHANCEMENTS_TOTAL" ]]; then
+          echo "enhancements_total=$ENHANCEMENTS_TOTAL" >> $GITHUB_OUTPUT
+        else
+          echo "enhancements_total=0" >> $GITHUB_OUTPUT
+        fi
+
+        echo "✅ Enhanced $FILES_COUNT YAML file(s)"
 
     - name: Create Pull Request
       if: inputs.create_pull_request == 'true' && steps.should-process.outputs.should_process == 'true'
       uses: peter-evans/create-pull-request@v5
       with:
         token: ${{ github.token }}
-        commit-message: '📚 Generate API documentation from YAML specifications'
+        commit-message: '📝 Enhance OpenAPI YAML specifications with AI-generated descriptions'
         title: ${{ env.GENERATED_PR_TITLE || inputs.pr_title }}
         body: |
-          ## 🤖 Auto-generated Documentation Update
+          ## 📝 YAML Enhancements
 
-          This pull request contains automatically generated documentation from YAML specifications.
+          This PR enhances OpenAPI YAML specifications with AI-generated descriptions.
 
-          ### 📊 Generation Summary
-          - **Input Directory:** `${{ inputs.yaml_input_path }}`
-          - **Output Directory:** `${{ inputs.output_path }}`
+          ### 📊 Enhancement Summary
+          - **Files enhanced:** ${{ steps.enhance.outputs.files_count }}
+          - **Total enhancements:** ${{ steps.enhance.outputs.enhancements_total }}
+          - **Enhancement mode:** ${{ inputs.enhancement_mode }}
           - **AI Model Used:** ${{ inputs.openai_model }}
-          - **Files Generated:** ${{ steps.generate.outputs.files_count }}
-          - **Smart Title:** AI-generated based on content analysis
+
+          ### 🎯 What was enhanced
+          - Missing info.description fields
+          - Parameter descriptions
+          - Schema descriptions
+          - Property descriptions
+          - Tag descriptions
 
           ### 🔄 Process Details
           - **Max Iterations:** ${{ inputs.max_iterations }}
-          - **Quality Threshold:** ${{ inputs.completeness_threshold }}%
+          - **Quality Threshold:** ${{ inputs.quality_threshold }}%
           - **Processing Time Limit:** ${{ inputs.timeout_minutes }} minutes
           - **Change Detection:** ${{ inputs.process_changed_only == 'true' && '✅ Enabled' || '❌ Disabled' }}
 
-          ---
-          🤖 This PR was created automatically by the YAML to Markdown Documentation Generator.
+          All enhancements preserve the original YAML structure, comments, and formatting.
 
-          Please review the generated documentation before merging.
+          ---
+          🤖 Generated with AI using ${{ inputs.openai_model }}
+
+          Please review the enhanced YAML specifications before merging.
         branch: ${{ inputs.pr_branch_name }}
         branch-suffix: timestamp
         delete-branch: true
         add-paths: |
-          ${{ inputs.output_path }}/**
+          ${{ inputs.yaml_output_path || inputs.yaml_input_path }}/**
         assignees: ${{ github.actor }}
 
     - name: Summary
       if: steps.should-process.outputs.should_process == 'true'
       shell: bash
       run: |
-        echo "## 📚 Documentation Generation Complete!" >> $GITHUB_STEP_SUMMARY
+        echo "## 📝 YAML Enhancement Complete!" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "- **AI Model Used:** ${{ inputs.openai_model }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Template:** ${{ env.TEMPLATE_PATH }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Enhancement Mode:** ${{ inputs.enhancement_mode }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Quality Threshold:** ${{ inputs.quality_threshold }}%" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
         if [ "${{ inputs.create_pull_request }}" == "true" ]; then
@@ -274,14 +299,20 @@ runs:
           echo "- **Assignee:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Status:** Ready for review" >> $GITHUB_STEP_SUMMARY
         else
+          # Determine output directory
+          OUTPUT_DIR="${{ inputs.yaml_output_path }}"
+          if [[ -z "$OUTPUT_DIR" ]]; then
+            OUTPUT_DIR="${{ inputs.yaml_input_path }}"
+          fi
+
           # Count files if output directory exists
-          if [[ -d "${{ inputs.output_path }}" ]]; then
-            FILES_COUNT=$(find "${{ inputs.output_path }}" -name "*.md" 2>/dev/null | wc -l)
-            echo "- **Files Generated:** $FILES_COUNT" >> $GITHUB_STEP_SUMMARY
+          if [[ -d "$OUTPUT_DIR" ]]; then
+            FILES_COUNT=$(find "$OUTPUT_DIR" -name "*.yaml" -o -name "*.yml" 2>/dev/null | wc -l)
+            echo "- **Files Enhanced:** $FILES_COUNT" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### Generated Files:" >> $GITHUB_STEP_SUMMARY
+            echo "### Enhanced Files:" >> $GITHUB_STEP_SUMMARY
             if [[ $FILES_COUNT -gt 0 ]]; then
-              find "${{ inputs.output_path }}" -name "*.md" 2>/dev/null | while read file; do
+              find "$OUTPUT_DIR" -name "*.yaml" -o -name "*.yml" 2>/dev/null | while read file; do
                 echo "- \`$(basename "$file")\`" >> $GITHUB_STEP_SUMMARY
               done
             fi

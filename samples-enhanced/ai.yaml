@@ -4,7 +4,11 @@ info:
   description: 'The AI Services API offers a range of AI-driven features, including text summarization, SQL transformation, natural language understanding, image recognition, and more. It''s engineered to seamlessly integrate sophisticated AI capabilities into diverse applications.'
   version: '2.2.3225_master'
 servers:
-- url: https://<subdomain>.domo.com
+- url: https://{subdomain}.domo.com
+  variables:
+    subdomain:
+      default: your-instance
+      description: Your subdomain
 tags:
 - name: AI Services - Embedding
   description: Domo AI Service Embedding APIs
@@ -644,7 +648,7 @@ paths:
       - domo-developer-token: []
       parameters:
         toolChoice:
-          description: Defines which tools the AI should use, through an object with various tool types and setups.
+          description: Specifies the tool to be invoked and configured within the API call, accepting an object with parameters that define its functionality.
         reasoningConfig:
           description: Enables fine-tuning of AI tool behavior with adjustable configuration settings.
   /api/ai/v1/messages/chat:
@@ -949,9 +953,9 @@ paths:
       - domo-developer-token: []
       parameters:
         dimensions:
-          description: Sets the vector size for text embeddings, allowing adjustment of dimension count.
+          description: Specifies the size of the vector space for the text embeddings, with expected integer values representing the number of dimensions.
         requestId:
-          description: Optional client-generated UUID for uniquely identifying and tracking an embedding request.
+          description: An optional unique identifier (UUID) for tracking and correlating the request with external systems.
   /api/ai/v1/embedding/image:
     post:
       tags:
@@ -1012,9 +1016,9 @@ paths:
       - domo-developer-token: []
       parameters:
         dimensions:
-          description: Sets dimensions for image embeddings, expected as positive integer values.
+          description: The 'dimensions' parameter specifies the size of the output embedding vector, allowing customization of its dimensionality for the desired image processing application.
         requestId:
-          description: Optional UUID to uniquely identify and manage API calls for tracking purposes.
+          description: The 'requestId' parameter specifies an optional unique identifier in UUID format for tracking and identifying the specific embedding request.
   /api/ai/v1/classification:
     post:
       tags:
@@ -1794,8 +1798,10 @@ components:
       properties:
         description:
           type: string
+          description: A detailed explanation of the purpose and usage of the parameter within the object function.
         title:
           type: string
+          description: A brief, human-readable name or label for the parameter.
         properties:
           type: object
           additionalProperties:
@@ -1808,27 +1814,34 @@ components:
             - $ref: '#/components/schemas/NumberFunctionParameter'
             - $ref: '#/components/schemas/ObjectFunctionParameter'
             - $ref: '#/components/schemas/StringFunctionParameter'
+          description: An object defining specific sub-properties that are part of this parameter's structure.
         additionalProperties:
           type: boolean
+          description: A flag indicating whether object properties not specified in 'properties' are allowed.
         required:
           type: array
           items:
             type: string
+          description: An array specifying the names of properties that must be included in the object.
         enum:
           type: array
           items:
             type: object
             additionalProperties: {}
           uniqueItems: true
+          description: A list enumerating the predefined set of valid values for this parameter.
         minProperties:
           type: integer
           format: int32
+          description: The minimum number of properties that must be present in the object.
         maxProperties:
           type: integer
           format: int32
+          description: The maximum number of properties that are allowed in the object.
         const:
           type: object
           additionalProperties: {}
+          description: A property that restricts the parameter's value to a single constant value.
         $defs:
           type: object
           additionalProperties:
@@ -1841,6 +1854,7 @@ components:
             - $ref: '#/components/schemas/NumberFunctionParameter'
             - $ref: '#/components/schemas/ObjectFunctionParameter'
             - $ref: '#/components/schemas/StringFunctionParameter'
+          description: A location where reusable schema definitions can be declared for use within the schema.
         definitions:
           type: object
           additionalProperties:
@@ -1871,14 +1885,17 @@ components:
       - description
       - properties
       - type
+      description: Defines the parameters required for executing a specific function within the AI Services, detailing input types and constraints.
     ResponseFormat:
       discriminator:
         propertyName: type
       properties:
         type:
           type: string
+          description: Specifies the format or structure of the data expected in the API response, such as JSON, XML, or plain text, ensuring compatibility with different client applications.
       required:
       - type
+      description: Defines the structure and content of responses from the AI Services API, including result data and status indicators.
     StringFunctionParameter:
       allOf:
       - $ref: '#/components/schemas/FunctionParameterObject'
@@ -1908,6 +1925,7 @@ components:
       required:
       - description
       - type
+      description: Defines a parameter for string manipulation functions, encompassing options for input string specifications and transformation preferences.
     TextGenerationRequest:
       type: object
       description: |-
@@ -2116,10 +2134,14 @@ components:
       properties:
         name:
           type: string
+          description: Specifies the unique identifier for the function within the AI Services API, crucial for distinguishing it among multiple functions.
         description:
           type: string
+          description: Provides a detailed summary of the function's purpose and capabilities within the AI Services, aiding users in understanding its applicability.
         parameters:
           $ref: '#/components/schemas/ObjectFunctionParameter'
+          description: Defines the input values required for the function's execution, detailing their types, constraints, and defaults to ensure proper utilization.
+      description: Defines the blueprint for function parameters and execution details within the AI Services platform, enabling structured interaction with AI capabilities.
     Image:
       type: object
       description: Image data and metadata.
@@ -2169,8 +2191,10 @@ components:
       properties:
         type:
           type: string
+          description: Specifies the format or nature of the message content, such as 'text', 'image', or 'audio', defining how the message should be interpreted and processed.
       required:
       - type
+      description: Defines the structure and content of a message within the AI Services API, encompassing text data and associated metadata for message handling.
     ReasoningMessageContent:
       allOf:
       - $ref: '#/components/schemas/MessageContent'
@@ -2253,10 +2277,14 @@ components:
           - ANY
           - TOOL
           - UNKNOWN
+          description: Specifies the category or classification of the tool within the AI services suite.
         name:
           type: string
+          description: Denotes the unique identifier for the tool, used to distinguish it from others within the suite.
         allowParallelToolCalls:
           type: boolean
+          description: Indicates whether multiple instances of the tool can be executed simultaneously, allowing for concurrent processing tasks.
+      description: Defines the selection criteria and parameters for choosing AI tools within the AI Services platform.
     ToolUseRequestMessageContent:
       allOf:
       - $ref: '#/components/schemas/MessageContent'
@@ -2574,6 +2602,7 @@ components:
           type: string
         modelProviderUsage:
           $ref: '#/components/schemas/ModelProviderUsage'
+      description: Represents a response object containing vector embeddings and metadata for AI-driven content processing.
     ImageEmbeddingAIRequest:
       type: object
       description: |-

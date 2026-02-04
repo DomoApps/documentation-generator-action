@@ -18,15 +18,26 @@ class EnvVars:
 
         # Input/Output paths
         self.yaml_input_path = os.getenv("YAML_INPUT_PATH", "./input")
+
+        # Legacy markdown paths (kept for backward compatibility)
         self.markdown_output_path = os.getenv("MARKDOWN_OUTPUT_PATH", "./output")
         self.template_path = os.getenv(
             "TEMPLATE_PATH", "./templates/product-api.template.md"
         )
 
+        # YAML enhancement paths (new)
+        self.yaml_output_path = os.getenv("YAML_OUTPUT_PATH", self.yaml_input_path)  # Default to in-place
+
         # Process configuration
         self.max_iterations = int(os.getenv("MAX_ITERATIONS", "10"))
         self.completeness_threshold = int(os.getenv("COMPLETENESS_THRESHOLD", "90"))
         self.timeout_minutes = int(os.getenv("TIMEOUT_MINUTES", "30"))
+
+        # YAML enhancement configuration (new)
+        self.enhancement_mode = os.getenv("ENHANCEMENT_MODE", "missing_only")  # missing_only, improve_all, specific_fields
+        self.enhancement_fields = os.getenv("ENHANCEMENT_FIELDS", "info,tags,endpoints,parameters,schemas")
+        self.quality_threshold = int(os.getenv("QUALITY_THRESHOLD", "85"))
+        self.preserve_existing = os.getenv("PRESERVE_EXISTING", "true").lower() == "true"
 
         # Changed files processing
         self.process_changed_only = (
@@ -42,8 +53,7 @@ class EnvVars:
             "openai_api_key": self.openai_api_key,
             "openai_model": self.openai_model,
             "yaml_input_path": self.yaml_input_path,
-            "markdown_output_path": self.markdown_output_path,
-            "template_path": self.template_path,
+            # markdown_output_path and template_path are now optional (legacy)
             "max_iterations": self.max_iterations,
             "completeness_threshold": self.completeness_threshold,
             "timeout_minutes": self.timeout_minutes,
