@@ -1,18 +1,13 @@
-# Sync OpenAPI Specifications and Update Navigation
+# Sync OpenAPI Specifications with Individual PRs
 #
-# This workflow runs in the destination repo (e.g., your Mintlify docs repo).
-# It syncs OpenAPI YAML files from a source repo and updates docs.json navigation.
-#
-# Triggers:
-# 1. Schedule: Runs periodically to check for changes
-# 2. Manual: Use workflow_dispatch to run on demand
-# 3. Repository dispatch: Triggered by source repo webhook
+# Alternative workflow that creates individual PRs for each changed file
+# instead of committing directly. Useful when you want review before merging.
 
-name: Sync OpenAPI Specs
+name: Sync OpenAPI Specs (with PRs)
 
 on:
   schedule:
-    - cron: '0 */6 * * *'  # Every 6 hours
+    - cron: '0 */6 * * *'
 
   workflow_dispatch:
     inputs:
@@ -22,9 +17,6 @@ on:
         type: boolean
         default: false
 
-  repository_dispatch:
-    types: [openapi-updated]
-
 jobs:
   sync:
     runs-on: ubuntu-latest
@@ -33,8 +25,6 @@ jobs:
       pull-requests: write
 
     steps:
-      # Generate token if using GitHub App for cross-repo access
-      # Remove this step if source repo is public or using PAT
       - name: Generate GitHub App Token
         uses: actions/create-github-app-token@v1
         id: app-token
@@ -52,7 +42,7 @@ jobs:
       - name: Clone Source Repo
         uses: actions/checkout@v4
         with:
-          repository: your-org/source-repo  # Change to your source repo
+          repository: your-org/source-repo
           token: ${{ steps.app-token.outputs.token }}
           path: source-repo
           fetch-depth: 0
@@ -62,7 +52,6 @@ jobs:
         with:
           python-version: '3.10'
 
-      # Detect which YAML files have changed
       - name: Detect Changed YAML Files
         id: detect
         run: |
@@ -76,40 +65,23 @@ jobs:
         run: |
           if [ -f changed_files.txt ] && [ -s changed_files.txt ]; then
             echo "has_changes=true" >> $GITHUB_OUTPUT
-            echo "Changed files:"
-            cat changed_files.txt
           else
             echo "has_changes=false" >> $GITHUB_OUTPUT
-            echo "No changes detected"
           fi
 
-      # Sync YAML files to destination
-      - name: Sync YAML Files
+      # Create individual PRs for each changed file
+      - name: Create Individual PRs
         if: steps.check.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          python .github/scripts/sync_to_destination.py \
-            --source source-repo/api-specs \
-            --destination openapi/product \
-            --changed-list changed_files.txt
-
-      # Update docs.json navigation using TOC generator
-      - name: Update API Navigation
-        if: steps.check.outputs.has_changes == 'true'
-        uses: DomoApps/documentation-generator-action@main
-        with:
-          yaml_input_path: './openapi/product'
-          docs_json_path: './docs.json'
-          openapi_base_path: 'openapi/product'
-
-      # Commit all changes (YAML files + docs.json)
-      - name: Commit Changes
-        if: steps.check.outputs.has_changes == 'true'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add openapi/product docs.json
-          git diff --staged --quiet || git commit -m "docs: Sync OpenAPI specs and update navigation"
-          git push
+          python .github/scripts/create_individual_prs.py \
+            --changed-list changed_files.txt \
+            --source-dir source-repo/api-specs \
+            --dest-dir openapi/product \
+            --base-branch main \
+            --pr-branch-prefix openapi-sync \
+            --repo ${{ github.repository }}
 
       - name: Summary
         if: always()
@@ -117,12 +89,12 @@ jobs:
           echo "## OpenAPI Sync Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ "${{ steps.check.outputs.has_changes }}" == "true" ]; then
-            echo "Changes detected and synced:" >> $GITHUB_STEP_SUMMARY
+            echo "Individual PRs created for:" >> $GITHUB_STEP_SUMMARY
             if [ -f changed_files.txt ]; then
               while IFS= read -r file; do
                 echo "- \`$(basename $file)\`" >> $GITHUB_STEP_SUMMARY
               done < changed_files.txt
             fi
           else
-            echo "No changes detected - YAML files are up to date" >> $GITHUB_STEP_SUMMARY
+            echo "No changes detected" >> $GITHUB_STEP_SUMMARY
           fi

@@ -4,123 +4,113 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a GitHub Action that generates professional Markdown documentation from YAML/OpenAPI specifications using AI. The action uses OpenAI's GPT models to intelligently populate documentation templates with content extracted from API specs.
+This is a GitHub Action that generates Mintlify-compatible Table of Contents (TOC) JSON from OpenAPI YAML specifications. The action deterministically parses OpenAPI specs and generates navigation entries for Mintlify `docs.json`.
 
-**Key Insight:** The project uses a **hybrid approach** combining deterministic parsing with AI validation. The `process_openapi_to_markdown_deterministic` method parses the OpenAPI spec reliably, then validates output quality with AI and refines based on feedback. This gives us the reliability of deterministic parsing with the quality assurance of AI validation.
+**Key Insight:** This project uses a **fully deterministic approach** - no AI is involved. The `TOCGenerator` parses OpenAPI specs using prance and generates structured TOC entries based on API tags and endpoints.
 
 ## Commands
 
 ### Local Development & Testing
 
 ```bash
-# Set up environment (copy .env.example to .env and fill in API key)
-export OPENAI_API_KEY="your-key"
+# Set up environment variables
 export YAML_INPUT_PATH="./samples"
-export MARKDOWN_OUTPUT_PATH="./output"
-export TEMPLATE_PATH="./templates/product-api.template.md"
+export DOCS_JSON_PATH="./path/to/docs.json"
+export OPENAPI_BASE_PATH="openapi/product"
 
 # Run the generator locally
-python src/doc_generator_main.py
+python src/toc_generator_main.py
 
-# Run unit tests (mocked, no API calls)
+# Run all tests
 pytest
 
-# Run integration tests (requires real OpenAI API key in .env)
-pytest -m integration
-
-# Run parser-only tests (no AI, deterministic parsing)
+# Run parser-only tests (deterministic parsing)
 pytest tests/test_parser_only.py
 
-# Run deterministic tests with AI
-pytest tests/test_deterministic_with_ai.py
+# Run TOC generator tests
+pytest tests/test_toc_generator.py
 ```
 
-### GitHub Actions Testing
+### GitHub Actions Usage
 
-The action can be consumed as either:
-1. **Composite Action**: `DomoApps/documentation-generator-action@main`
-2. **Reusable Workflow**: `DomoApps/documentation-generator-action/.github/workflows/action.yml@main`
+```yaml
+- uses: DomoApps/documentation-generator-action@main
+  with:
+    yaml_input_path: './yaml'
+    docs_json_path: './docs.json'
+    openapi_base_path: 'openapi/product'
+```
 
 ## Code Architecture
 
-### Hybrid Processing Approach
+### Processing Flow
 
-**Primary Path (Hybrid: Deterministic + Validation)**:
-1. `OpenAPIParser` (src/openapi/openapi_parser.py) parses the OpenAPI spec using prance for $ref resolution
-2. Extracts all endpoints, parameters, schemas deterministically without AI
-3. Generates examples from schemas using `ExampleGenerator`
-4. AI fills the template with structured data
-5. **AI validates** the generated documentation (completeness, accuracy, code quality, syntax)
-6. **AI refines** based on validation feedback if quality threshold not met
-7. **Iterates** up to max_iterations (default: 3) until quality threshold (default: 90%) achieved
-
-**Fallback Path (Legacy Iterative)**:
-1. AI analyzes YAML and extracts template data
-2. AI generates markdown by populating template
-3. AI validates quality and completeness
-4. Iterative refinement loop until quality threshold met or max iterations reached
-
-The hybrid approach is more reliable than legacy because the parsing is deterministic, but still gets the quality benefits of AI validation and refinement.
+```
+YAML Files → OpenAPIParser → EndpointData → TOCGenerator → TOC JSON → DocsJsonManager → docs.json
+```
 
 ### Core Components
 
-**Entry Point**: `src/doc_generator_main.py`
+**Entry Point**: `src/toc_generator_main.py`
 - Loads environment variables via `EnvVars` class
 - Determines which YAML files to process (all or changed only)
-- Calls `process_openapi_to_markdown_deterministic()` with fallback to legacy method
-- Generates AI-powered PR titles when processing changed files
-- Saves GENERATED_PR_TITLE to GITHUB_ENV for the GitHub Action
+- Calls `TOCGenerator` to generate TOC entries
+- Uses `DocsJsonManager` to update docs.json
+- Optionally copies YAML files to destination
 
-**AI Document Generator**: `src/ai/doc_generator.py` (extends `AiBot`)
-- **Hybrid methods**:
-  - `process_openapi_to_markdown_deterministic()`: Main entry point with validation loop
-  - `_generate_endpoint_documentation()`: Fills template for one endpoint
-  - `_build_parameter_table()`: Creates markdown tables from structured data
-  - `_generate_nested_object_tables()`: Creates collapsible dropdowns for nested objects
-  - `_combine_endpoint_docs()`: Assembles final document with TOC
-- **Validation & refinement methods** (shared with legacy):
-  - `_validate_documentation()`: Scores quality on 5 metrics (completeness, template_coverage, code_quality, markdown_syntax, overall)
-  - `_refine_documentation()`: Targeted improvements based on validation feedback
-  - `_should_exit()`: Checks if quality threshold met
-- **Legacy iterative methods**: `process_yaml_to_markdown()`, `_analyze_yaml()`, `_generate_markdown()`
-- **PR title generation**: `generate_pr_title()` - Creates AI-powered PR titles
-- **JSON handling**: Multiple fallback strategies for extracting JSON from AI responses
+**TOC Generator**: `src/toc_generator.py`
+- `generate_toc_for_file()`: Generates TOC for a single YAML file
+- `generate_toc_for_directory()`: Processes all YAML files in a directory
+- `_group_endpoints_by_tag()`: Groups endpoints by their first tag
+- `_sort_endpoints_by_method()`: Alphabetically sorts endpoints by HTTP method
+- `_format_page_string()`: Formats Mintlify page references
+
+**Docs JSON Manager**: `src/docs_json_manager.py`
+- `load()` / `save()`: Read and write docs.json
+- `find_api_reference_pages()`: Navigate to API Reference tab pages
+- `insert_or_replace_group()`: Insert or update TOC group
+- `remove_group()`: Remove a TOC group
+- `get_existing_groups()`: List current groups
 
 **OpenAPI Parser**: `src/openapi/openapi_parser.py`
 - Uses prance library for $ref resolution (with manual fallback for circular refs)
 - `parse_all_endpoints()`: Returns list of `EndpointData` objects
-- `_resolve_ref()`: Manual $ref resolution with recursion protection
+- `get_api_info()`: Returns API title, description, version, tags
 - Handles _Nullable schema patterns (common in real-world specs)
-- Pre-processes specs to fix common validation issues (e.g., empty server objects)
-
-**Example Generator**: `src/openapi/example_generator.py`
-- Generates realistic examples from OpenAPI schemas
-- Extracts existing examples from specs when available
-- Type-aware generation (strings, numbers, booleans, arrays, objects)
+- Pre-processes specs to fix common validation issues
 
 **Environment Variables**: `src/env_vars.py`
-- Loads `.env` file for local development
-- Validates required environment variables
-- Provides defaults for optional parameters
+- `DOCS_JSON_PATH` (required): Path to docs.json to update
+- `YAML_INPUT_PATH` (default: ./yaml): Source YAML directory
+- `OPENAPI_BASE_PATH` (default: openapi/product): Prefix for page paths
+- `YAML_COPY_DESTINATION` (optional): Copy YAMLs to this directory
+- `PROCESS_CHANGED_ONLY` (default: false): Only process changed files
+- `CHANGED_FILES`: Newline-separated list of changed files
 
-### Data Flow
+### Output Format
 
-**Hybrid Approach (Primary)**:
-```
-YAML File → OpenAPIParser → List[EndpointData] → DocGenerator → AI (template filling) → Markdown
-                ↓                                                           ↓
-         ExampleGenerator                                          AI Validation
-                                                                         ↓
-                                                              Quality Check (90% threshold)
-                                                                         ↓
-                                                            ┌───── Pass → Done
-                                                            └───── Fail → AI Refinement → Loop
+For each YAML file, generates:
+```json
+{
+  "group": "API Title from YAML",
+  "pages": [
+    {
+      "group": "Tag Name",
+      "pages": [
+        "openapi/product/filename.yaml DELETE /path",
+        "openapi/product/filename.yaml GET /path",
+        "openapi/product/filename.yaml POST /path"
+      ]
+    }
+  ]
+}
 ```
 
-**Legacy Iterative Approach (Fallback)**:
-```
-YAML → AI Analysis → Template Data → AI Generation → Markdown → AI Validation → Refinement Loop
-```
+**Key Format Rules**:
+- Group name comes from `info.title` in YAML
+- Nested groups are based on OpenAPI tags
+- Page format: `{openapi_base_path}/{filename}.yaml {METHOD} {path}`
+- Methods are sorted alphabetically (DELETE, GET, PATCH, POST, PUT)
 
 ### Key Data Structures
 
@@ -131,84 +121,54 @@ YAML → AI Analysis → Template Data → AI Generation → Markdown → AI Val
 - Request body: request_body_schema, request_body_parameters, request_body_example
 - Responses: responses dict, success_response_example, success_status_code
 
-### Template System
-
-Templates use Handlebars-style placeholders:
-- Simple: `{{API_NAME}}`, `{{HTTP_METHOD}}`, `{{ENDPOINT_PATH}}`
-- Tables: `{{PATH_PARAMETERS_TABLE}}`, `{{REQUEST_BODY_TABLE}}`
-- Examples: `{{REQUEST_BODY_EXAMPLE}}`, `{{RESPONSE_EXAMPLE}}`
-- Special: `{{NESTED_OBJECT_TABLES}}` - Collapsible dropdowns for nested schemas
-
-The deterministic approach builds these tables directly in Python, then AI fills the complete template.
-
 ### GitHub Actions Integration
 
-**Change Detection** (action.yml lines 87-131):
+**Change Detection** (action.yml):
 - Determines base reference (PR base, previous commit on main, or origin/main)
 - Uses `git diff` to find changed YAML files
 - Sets `has_changes` output to skip processing if no YAML files changed
 
-**PR Creation** (action.yml lines 198-232):
+**PR Creation**:
 - Uses peter-evans/create-pull-request@v5
-- PR title comes from `GENERATED_PR_TITLE` env var (AI-generated) or falls back to `pr_title` input
 - Auto-assigns PR to the actor who triggered the workflow
 - Branch name includes timestamp suffix to avoid conflicts
 
 ## Testing Strategy
 
-**Unit Tests**: Mock OpenAI API, focus on logic
-**Integration Tests**: Use `@pytest.mark.integration`, require real API key
-**Parser Tests**: Test deterministic parsing without AI
-**Deterministic Tests**: Test full deterministic flow with AI
+**Unit Tests**: Test TOCGenerator and DocsJsonManager logic
+**Parser Tests**: Test deterministic parsing without external dependencies
+**Integration Tests**: Full workflow tests with sample YAML files
 
-Test fixtures in `tests/conftest.py` auto-load `.env` file and mock environment variables for unit tests.
-
-## Validation & Quality Control
-
-The hybrid approach validates documentation on 5 key metrics (0-100 scale):
-
-1. **Completeness**: Are all YAML/OpenAPI elements documented?
-2. **Template Coverage**: Are all template placeholders filled?
-3. **Code Quality**: Are code examples realistic and functional?
-4. **Markdown Syntax**: Is the markdown properly formatted?
-5. **Overall**: Aggregate score that determines if refinement is needed
-
-**Exit Conditions**:
-- Overall score ≥ completeness_threshold (default: 90%)
-- AND exit_criteria_met flag is true
-- OR max_iterations reached (default: 3 for hybrid, 10 for legacy)
-
-**Refinement Strategy**:
-The AI receives specific feedback about what's missing or incorrect, then makes targeted improvements rather than regenerating from scratch. This preserves the deterministic structure while fixing specific issues.
+Test fixtures in `tests/conftest.py` auto-load `.env` file.
 
 ## Common Patterns & Gotchas
 
-1. **JSON Extraction**: AI responses often contain markdown code blocks or extra text. The `_extract_json_from_response()` method has 4 fallback strategies to handle this.
+1. **Circular $refs**: OpenAPI specs can have circular references. The parser uses manual $ref resolution with max depth protection instead of relying solely on prance.
 
-2. **Circular $refs**: OpenAPI specs can have circular references. The parser uses manual $ref resolution with max depth protection instead of relying solely on prance.
+2. **_Nullable Schemas**: Many real-world OpenAPI specs use `_Nullable` suffixed schemas for optional complex types. The parser detects and resolves these to their base schemas.
 
-3. **_Nullable Schemas**: Many real-world OpenAPI specs use `_Nullable` suffixed schemas for optional complex types. The parser detects and resolves these to their base schemas.
+3. **Untagged Endpoints**: Endpoints without tags are grouped under "Untagged" in the TOC.
 
-4. **Nested Object Documentation**: Complex request bodies with nested objects are documented using collapsible markdown dropdowns (`<details>` tags) to avoid overwhelming the reader.
+4. **Empty Server Objects**: Invalid specs with empty server objects are pre-processed and fixed before parsing.
 
-5. **Schema-level Descriptions**: Request body schemas often have important descriptions at the schema level (not just property level). These are captured in `request_body_description` and included in documentation.
+5. **Debugging**: Check for `Log.print_red()` warnings when debugging failures.
 
-6. **Fallback Mechanisms**: Every AI call and parsing operation has fallback logic to ensure the action doesn't fail completely. Check for Log.print_red() warnings when debugging.
+## Repository Structure
 
-## Repository Structure Notes
-
-- `samples/`: Contains example YAML files for testing (e.g., filesets.yaml)
-- `templates/`: Default template is `product-api.template.md`
-- `output/`: Generated markdown files (gitignored)
-- `tests/`: Comprehensive test suite with integration and unit tests
-- `.env`: Local development environment variables (gitignored, use .env.example as template)
+- `src/toc_generator.py`: Core TOC generation logic
+- `src/docs_json_manager.py`: docs.json manipulation
+- `src/toc_generator_main.py`: Entry point
+- `src/env_vars.py`: Environment variable handling
+- `src/openapi/openapi_parser.py`: OpenAPI parsing
+- `src/openapi/example_generator.py`: Example generation (kept for parser)
+- `src/log.py`: Logging utility
+- `samples/`: Example YAML files for testing
+- `tests/`: Test suite
 
 ## Development Workflow
 
 When adding new features:
 1. Add tests first (TDD approach preferred)
-2. Implement in deterministic path if possible (better reliability)
-3. Update CONTEXT.md if architecture changes significantly
-4. Test locally with real OpenAPI specs from `samples/`
-5. Run both unit and integration tests before committing
-6. Update action.yml if adding new inputs/outputs
+2. Test locally with real OpenAPI specs from `samples/`
+3. Run all tests before committing
+4. Update action.yml if adding new inputs/outputs

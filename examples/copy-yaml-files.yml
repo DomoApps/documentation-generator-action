@@ -1,0 +1,35 @@
+# Copy YAML Files
+# Copies YAML files to the Mintlify openapi directory in addition to updating docs.json
+# Useful when source YAMLs are in a different location than where Mintlify expects them
+
+name: Update API Navigation (With Copy)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'api-specs/**/*.yaml'
+      - 'api-specs/**/*.yml'
+
+jobs:
+  update-navigation:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate API Navigation
+        uses: DomoApps/documentation-generator-action@main
+        with:
+          yaml_input_path: './api-specs'
+          docs_json_path: './docs.json'
+          openapi_base_path: 'openapi/product'
+          yaml_copy_destination: './openapi/product'  # Copy YAMLs here
+          process_changed_only: 'true'
+          create_pull_request: 'true'
+          pr_title: 'docs: Update API specs and navigation'

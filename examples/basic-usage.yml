@@ -1,0 +1,35 @@
+# Basic Usage
+# Processes all YAML files and commits updated docs.json directly
+
+name: Update API Navigation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'yaml/**/*.yaml'
+      - 'yaml/**/*.yml'
+
+jobs:
+  update-navigation:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate API Navigation
+        uses: DomoApps/documentation-generator-action@main
+        with:
+          yaml_input_path: './yaml'
+          docs_json_path: './docs.json'
+          openapi_base_path: 'openapi/product'
+
+      - name: Commit changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add docs.json
+          git diff --staged --quiet || git commit -m "docs: Update API navigation"
+          git push

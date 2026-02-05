@@ -2,49 +2,29 @@
 # Version 2.0, January 2004
 # Author: Jonathan Tiritilli
 
-name: 'OpenAPI YAML Enhancement with AI'
-description: 'Enhance OpenAPI YAML specifications with AI-generated descriptions for improved documentation quality'
+name: 'OpenAPI TOC Generator for Mintlify'
+description: 'Generate Mintlify docs.json navigation entries from OpenAPI YAML specifications'
 author: 'Jonathan Tiritilli'
 branding:
-  icon: edit-3
-  color: yellow
+  icon: book-open
+  color: green
 
 inputs:
-  openai_api_key:
-    description: 'OpenAI API key for AI processing'
-    required: true
   yaml_input_path:
-    description: 'Path to directory containing YAML files'
+    description: 'Path to directory containing OpenAPI YAML files'
     required: false
     default: './yaml'
-  yaml_output_path:
-    description: 'Path to output directory for enhanced YAML files (empty for in-place enhancement)'
+  docs_json_path:
+    description: 'Path to Mintlify docs.json file to update'
+    required: true
+  openapi_base_path:
+    description: 'Base path for OpenAPI references in docs.json (e.g., "openapi/product")'
+    required: false
+    default: 'openapi/product'
+  yaml_copy_destination:
+    description: 'Optional directory to copy YAML files to after processing'
     required: false
     default: ''
-  enhancement_mode:
-    description: 'Enhancement mode: missing_only (default), improve_all, specific_fields'
-    required: false
-    default: 'missing_only'
-  quality_threshold:
-    description: 'Minimum quality score (0-100) for AI-generated descriptions'
-    required: false
-    default: '85'
-  openai_model:
-    description: 'OpenAI model to use (gpt-4o, gpt-4, gpt-3.5-turbo)'
-    required: false
-    default: 'gpt-4o'
-  max_iterations:
-    description: 'Maximum refinement iterations'
-    required: false
-    default: '3'
-  completeness_threshold:
-    description: 'Quality score threshold for completion (0-100)'
-    required: false
-    default: '90'
-  timeout_minutes:
-    description: 'Maximum processing time in minutes'
-    required: false
-    default: '30'
   process_changed_only:
     description: 'Only process YAML files that have changed (requires git history)'
     required: false
@@ -58,28 +38,25 @@ inputs:
     required: false
     default: ''
   create_pull_request:
-    description: 'Create a pull request with enhanced YAML files'
+    description: 'Create a pull request with the updated docs.json'
     required: false
     default: 'false'
   pr_title:
     description: 'Title for the pull request'
     required: false
-    default: '📝 Enhance OpenAPI YAML Specifications'
+    default: 'Update API navigation in docs.json'
   pr_branch_name:
-    description: 'Name for the PR branch (uses auto-generated name if not provided)'
+    description: 'Name for the PR branch'
     required: false
-    default: 'yaml/enhance-specs'
+    default: 'docs/update-api-navigation'
 
 outputs:
-  enhanced_yaml_path:
-    description: 'Path to directory containing enhanced YAML files'
-    value: ${{ steps.enhance.outputs.output_path }}
-  files_enhanced:
-    description: 'Number of YAML files that were enhanced'
-    value: ${{ steps.enhance.outputs.files_count }}
-  enhancements_total:
-    description: 'Total number of descriptions added/improved'
-    value: ${{ steps.enhance.outputs.enhancements_total }}
+  files_processed:
+    description: 'Number of YAML files processed'
+    value: ${{ steps.generate.outputs.files_processed }}
+  groups_updated:
+    description: 'Number of API groups updated in docs.json'
+    value: ${{ steps.generate.outputs.groups_updated }}
 
 runs:
   using: composite
@@ -100,7 +77,7 @@ runs:
       shell: bash
       run: |
         if [[ "${{ inputs.process_changed_only }}" == "true" ]]; then
-          echo "🔍 Detecting changed YAML files..."
+          echo "Detecting changed YAML files..."
 
           # Determine base reference
           if [[ -n "${{ inputs.base_ref }}" ]]; then
@@ -108,7 +85,6 @@ runs:
           elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
             BASE_REF="${{ github.event.pull_request.base.sha }}"
           elif [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
-            # For direct pushes to main, compare against previous commit
             BASE_REF="${{ github.event.before }}"
           else
             BASE_REF="origin/main"
@@ -117,11 +93,11 @@ runs:
           echo "Base reference: $BASE_REF"
 
           # Get changed YAML files
-          YAML_DIR=$(echo "${{ inputs.yaml_input_path }}" | sed 's|^\./||')  # Remove leading ./
+          YAML_DIR=$(echo "${{ inputs.yaml_input_path }}" | sed 's|^\./||')
           CHANGED_FILES=$(git diff --name-only --diff-filter=ACMRT "$BASE_REF"...HEAD | grep -E '\.(yaml|yml)$' | grep "^${YAML_DIR}/" || true)
 
           if [[ -z "$CHANGED_FILES" ]]; then
-            echo "⚠️ No YAML files changed in ${{ inputs.yaml_input_path }}"
+            echo "No YAML files changed in ${{ inputs.yaml_input_path }}"
             echo "changed_files=" >> $GITHUB_OUTPUT
             echo "has_changes=false" >> $GITHUB_OUTPUT
             exit 0
@@ -130,13 +106,12 @@ runs:
           echo "Changed YAML files:"
           echo "$CHANGED_FILES" | sed 's/^/  - /'
 
-          # Save to output
           echo "changed_files<<EOF" >> $GITHUB_OUTPUT
           echo "$CHANGED_FILES" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
           echo "has_changes=true" >> $GITHUB_OUTPUT
         else
-          echo "🗂️ Processing all YAML files in directory"
+          echo "Processing all YAML files in directory"
           echo "has_changes=true" >> $GITHUB_OUTPUT
           echo "changed_files=" >> $GITHUB_OUTPUT
         fi
@@ -145,176 +120,118 @@ runs:
       id: should-process
       shell: bash
       run: |
-        # Check if there are any changes to process
-        # Use external changed_files input if provided, otherwise check internal detection
         if [[ -n "${{ inputs.changed_files }}" ]]; then
-          # External file list provided - always process
           echo "should_process=true" >> $GITHUB_OUTPUT
         elif [[ "${{ steps.changed-yaml.outputs.has_changes }}" != "true" ]]; then
-          echo "ℹ️ No changes detected, no processing needed"
-          echo "## ℹ️ No Changes Detected" >> $GITHUB_STEP_SUMMARY
+          echo "No changes detected, skipping processing"
+          echo "## No Changes Detected" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "No YAML files have changed since last run." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Action taken:** Workflow completed successfully without generating documentation." >> $GITHUB_STEP_SUMMARY
           echo "should_process=false" >> $GITHUB_OUTPUT
           exit 0
         else
           echo "should_process=true" >> $GITHUB_OUTPUT
         fi
 
-    - name: Prepare directories
+    - name: Verify paths
       if: steps.should-process.outputs.should_process == 'true'
       shell: bash
       run: |
-        # Create output directory if different from input
-        if [[ -n "${{ inputs.yaml_output_path }}" && "${{ inputs.yaml_output_path }}" != "${{ inputs.yaml_input_path }}" ]]; then
-          mkdir -p "${{ inputs.yaml_output_path }}"
-          echo "📁 Output directory: ${{ inputs.yaml_output_path }}"
-        else
-          echo "📁 In-place enhancement mode"
-        fi
-
         # Verify input directory exists
         if [[ ! -d "${{ inputs.yaml_input_path }}" ]]; then
-          echo "❌ Input directory not found: ${{ inputs.yaml_input_path }}"
-          echo "Please ensure YAML files are in the specified directory"
+          echo "Error: Input directory not found: ${{ inputs.yaml_input_path }}"
+          exit 1
+        fi
+
+        # Verify docs.json exists
+        if [[ ! -f "${{ inputs.docs_json_path }}" ]]; then
+          echo "Error: docs.json not found: ${{ inputs.docs_json_path }}"
           exit 1
         fi
 
         # Count YAML files
         YAML_COUNT=$(find "${{ inputs.yaml_input_path }}" -name "*.yaml" -o -name "*.yml" | wc -l)
-        echo "📁 Found $YAML_COUNT YAML file(s) to process"
+        echo "Found $YAML_COUNT YAML file(s) in ${{ inputs.yaml_input_path }}"
 
         if [[ $YAML_COUNT -eq 0 ]]; then
-          echo "⚠️  No YAML files found in ${{ inputs.yaml_input_path }}"
-          echo "Please ensure the directory contains .yaml or .yml files"
-          exit 1
+          echo "Warning: No YAML files found"
         fi
 
-    - name: Enhance YAML Files
+    - name: Create copy destination directory
+      if: steps.should-process.outputs.should_process == 'true' && inputs.yaml_copy_destination != ''
+      shell: bash
+      run: |
+        mkdir -p "${{ inputs.yaml_copy_destination }}"
+        echo "Created copy destination: ${{ inputs.yaml_copy_destination }}"
+
+    - name: Generate TOC and update docs.json
       if: steps.should-process.outputs.should_process == 'true'
-      id: enhance
+      id: generate
       shell: bash
       env:
-        OPENAI_API_KEY: ${{ inputs.openai_api_key }}
-        OPENAI_MODEL: ${{ inputs.openai_model }}
         YAML_INPUT_PATH: ${{ inputs.yaml_input_path }}
-        YAML_OUTPUT_PATH: ${{ inputs.yaml_output_path }}
-        ENHANCEMENT_MODE: ${{ inputs.enhancement_mode }}
-        QUALITY_THRESHOLD: ${{ inputs.quality_threshold }}
-        MAX_ITERATIONS: ${{ inputs.max_iterations }}
-        COMPLETENESS_THRESHOLD: ${{ inputs.completeness_threshold }}
-        TIMEOUT_MINUTES: ${{ inputs.timeout_minutes }}
+        DOCS_JSON_PATH: ${{ inputs.docs_json_path }}
+        OPENAPI_BASE_PATH: ${{ inputs.openapi_base_path }}
+        YAML_COPY_DESTINATION: ${{ inputs.yaml_copy_destination }}
         PROCESS_CHANGED_ONLY: ${{ inputs.process_changed_only }}
         CHANGED_FILES: ${{ inputs.changed_files || steps.changed-yaml.outputs.changed_files }}
       run: |
-        echo "🚀 Starting YAML enhancement..."
-        echo "📁 Input: ${{ inputs.yaml_input_path }}"
-        echo "📄 Output: ${{ inputs.yaml_output_path || 'in-place' }}"
-        echo "🤖 AI Model: ${{ inputs.openai_model }}"
-        echo "🎯 Quality Threshold: ${{ inputs.quality_threshold }}%"
+        echo "Starting TOC generation..."
+        echo "  Input: ${{ inputs.yaml_input_path }}"
+        echo "  docs.json: ${{ inputs.docs_json_path }}"
+        echo "  Base path: ${{ inputs.openapi_base_path }}"
 
-        # Run the YAML enhancer
-        python "${{ github.action_path }}/src/yaml_enhancer_main.py"
+        python "${{ github.action_path }}/src/toc_generator_main.py"
 
-        # Determine output path for counting
-        OUTPUT_DIR="${{ inputs.yaml_output_path }}"
-        if [[ -z "$OUTPUT_DIR" ]]; then
-          OUTPUT_DIR="${{ inputs.yaml_input_path }}"
-        fi
-
-        # Count enhanced files
-        FILES_COUNT=$(find "$OUTPUT_DIR" -name "*.yaml" -o -name "*.yml" | wc -l)
-        echo "files_count=$FILES_COUNT" >> $GITHUB_OUTPUT
-        echo "output_path=$OUTPUT_DIR" >> $GITHUB_OUTPUT
-
-        # Extract enhancements total from enhancement summary (if available)
-        if [[ -n "$ENHANCEMENTS_TOTAL" ]]; then
-          echo "enhancements_total=$ENHANCEMENTS_TOTAL" >> $GITHUB_OUTPUT
-        else
-          echo "enhancements_total=0" >> $GITHUB_OUTPUT
-        fi
-
-        echo "✅ Enhanced $FILES_COUNT YAML file(s)"
+        echo "TOC generation complete"
 
     - name: Create Pull Request
       if: inputs.create_pull_request == 'true' && steps.should-process.outputs.should_process == 'true'
       uses: peter-evans/create-pull-request@v5
       with:
         token: ${{ github.token }}
-        commit-message: '📝 Enhance OpenAPI YAML specifications with AI-generated descriptions'
-        title: ${{ env.GENERATED_PR_TITLE || inputs.pr_title }}
+        commit-message: 'docs: Update API navigation in docs.json'
+        title: ${{ inputs.pr_title }}
         body: |
-          ## 📝 YAML Enhancements
+          ## API Navigation Update
 
-          This PR enhances OpenAPI YAML specifications with AI-generated descriptions.
+          This PR updates the Mintlify docs.json navigation with TOC entries generated from OpenAPI specifications.
 
-          ### 📊 Enhancement Summary
-          - **Files enhanced:** ${{ steps.enhance.outputs.files_count }}
-          - **Total enhancements:** ${{ steps.enhance.outputs.enhancements_total }}
-          - **Enhancement mode:** ${{ inputs.enhancement_mode }}
-          - **AI Model Used:** ${{ inputs.openai_model }}
+          ### Summary
+          - **Files processed:** ${{ steps.generate.outputs.files_processed }}
+          - **Groups updated:** ${{ steps.generate.outputs.groups_updated }}
 
-          ### 🎯 What was enhanced
-          - Missing info.description fields
-          - Parameter descriptions
-          - Schema descriptions
-          - Property descriptions
-          - Tag descriptions
-
-          ### 🔄 Process Details
-          - **Max Iterations:** ${{ inputs.max_iterations }}
-          - **Quality Threshold:** ${{ inputs.quality_threshold }}%
-          - **Processing Time Limit:** ${{ inputs.timeout_minutes }} minutes
-          - **Change Detection:** ${{ inputs.process_changed_only == 'true' && '✅ Enabled' || '❌ Disabled' }}
-
-          All enhancements preserve the original YAML structure, comments, and formatting.
+          ### Configuration
+          - **YAML input path:** `${{ inputs.yaml_input_path }}`
+          - **OpenAPI base path:** `${{ inputs.openapi_base_path }}`
+          - **Change detection:** ${{ inputs.process_changed_only == 'true' && 'Enabled' || 'Disabled' }}
 
           ---
-          🤖 Generated with AI using ${{ inputs.openai_model }}
-
-          Please review the enhanced YAML specifications before merging.
+          Generated by [OpenAPI TOC Generator](https://github.com/DomoApps/documentation-generator-action)
         branch: ${{ inputs.pr_branch_name }}
         branch-suffix: timestamp
         delete-branch: true
         add-paths: |
-          ${{ inputs.yaml_output_path || inputs.yaml_input_path }}/**
+          ${{ inputs.docs_json_path }}
+          ${{ inputs.yaml_copy_destination }}/**
         assignees: ${{ github.actor }}
 
     - name: Summary
       if: steps.should-process.outputs.should_process == 'true'
       shell: bash
       run: |
-        echo "## 📝 YAML Enhancement Complete!" >> $GITHUB_STEP_SUMMARY
+        echo "## TOC Generation Complete" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "- **AI Model Used:** ${{ inputs.openai_model }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Enhancement Mode:** ${{ inputs.enhancement_mode }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Quality Threshold:** ${{ inputs.quality_threshold }}%" >> $GITHUB_STEP_SUMMARY
+        echo "- **Files processed:** ${{ steps.generate.outputs.files_processed || 'N/A' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Groups updated:** ${{ steps.generate.outputs.groups_updated || 'N/A' }}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Configuration" >> $GITHUB_STEP_SUMMARY
+        echo "- **YAML input:** \`${{ inputs.yaml_input_path }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **docs.json:** \`${{ inputs.docs_json_path }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Base path:** \`${{ inputs.openapi_base_path }}\`" >> $GITHUB_STEP_SUMMARY
 
         if [ "${{ inputs.create_pull_request }}" == "true" ]; then
-          echo "### 🌿 Pull Request Created" >> $GITHUB_STEP_SUMMARY
-          echo "- **Branch:** Auto-generated with timestamp" >> $GITHUB_STEP_SUMMARY
-          echo "- **Assignee:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Status:** Ready for review" >> $GITHUB_STEP_SUMMARY
-        else
-          # Determine output directory
-          OUTPUT_DIR="${{ inputs.yaml_output_path }}"
-          if [[ -z "$OUTPUT_DIR" ]]; then
-            OUTPUT_DIR="${{ inputs.yaml_input_path }}"
-          fi
-
-          # Count files if output directory exists
-          if [[ -d "$OUTPUT_DIR" ]]; then
-            FILES_COUNT=$(find "$OUTPUT_DIR" -name "*.yaml" -o -name "*.yml" 2>/dev/null | wc -l)
-            echo "- **Files Enhanced:** $FILES_COUNT" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### Enhanced Files:" >> $GITHUB_STEP_SUMMARY
-            if [[ $FILES_COUNT -gt 0 ]]; then
-              find "$OUTPUT_DIR" -name "*.yaml" -o -name "*.yml" 2>/dev/null | while read file; do
-                echo "- \`$(basename "$file")\`" >> $GITHUB_STEP_SUMMARY
-              done
-            fi
-          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Pull Request" >> $GITHUB_STEP_SUMMARY
+          echo "A pull request has been created with the changes." >> $GITHUB_STEP_SUMMARY
         fi

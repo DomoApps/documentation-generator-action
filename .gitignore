@@ -69,3 +69,6 @@ output.txt
 
 # Environment files
 .env
+
+# .claude
+.claude/
