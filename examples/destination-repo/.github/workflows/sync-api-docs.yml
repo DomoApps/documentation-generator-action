@@ -1,46 +1,70 @@
-name: Sync Enhanced YAML Specifications from Source Repo
+# Sync OpenAPI Specifications and Update Navigation
+#
+# This workflow runs in the destination repo (DomoApps/domo-developer-portal).
+# It syncs OpenAPI YAML files from the source repo and updates docs.json navigation,
+# creating a single PR with all changes for review.
 
-# This workflow runs autonomously in the destination repo - NO secrets needed in source repo!
-# It enhances OpenAPI YAML files with AI-generated descriptions and syncs them to the destination.
-# It can be triggered three ways:
-# 1. Schedule: Runs every 6 hours, checks source repo for changes
-# 2. Manual: Use workflow_dispatch to run on demand
-# 3. Source notification: Optional repository_dispatch from source repo (requires source repo secrets)
+name: Sync OpenAPI Specs
+
+# ============================================================================
+# CONFIGURATION - Update these values for your setup
+# ============================================================================
+env:
+  # Source repository (where OpenAPI YAMLs live)
+  SOURCE_OWNER: domoinc
+  SOURCE_REPO: internal-domo-apis
+  SOURCE_YAML_PATH: api-docs/public
+
+  # Destination paths (in this repo)
+  DEST_YAML_PATH: openapi/product
+  DOCS_JSON_PATH: ./docs.json
+  OPENAPI_BASE_PATH: openapi/product
+
+  # Git settings
+  BASE_BRANCH: master
+# ============================================================================
 
 on:
-  # Primary trigger - runs automatically every 6 hours
   schedule:
-    - cron: '0 */6 * * *'  # Every 6 hours
+    - cron: "0 */6 * * *" # Every 6 hours
 
-  # Manual trigger - use this for on-demand sync
   workflow_dispatch:
     inputs:
-      force_regenerate:
-        description: 'Force re-enhance all YAML files (ignore change detection)'
+      force_sync:
+        description: "Force sync all YAML files"
         required: false
         type: boolean
         default: false
 
-  # Optional - only works if source repo has APP_ID and APP_PRIVATE_KEY secrets configured
   repository_dispatch:
-    types: [source-yaml-updated]
+    types: [openapi-updated]
 
 jobs:
-  sync_docs:
+  sync:
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
 
     steps:
-      - name: Generate GitHub App Token
+      # Token for source repo (cross-org)
+      - name: Generate Source Repo Token
         uses: actions/create-github-app-token@v1
-        id: app-token
+        id: source-token
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          owner: domoinc
-          repositories: internal-domo-apis
+          owner: ${{ env.SOURCE_OWNER }}
+          repositories: ${{ env.SOURCE_REPO }}
+
+      # Token for destination repo (PRs)
+      - name: Generate Destination Repo Token
+        uses: actions/create-github-app-token@v1
+        id: dest-token
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          # No owner specified = current repo's org
 
       - name: Checkout Destination Repo
         uses: actions/checkout@v4
@@ -50,120 +74,111 @@ jobs:
       - name: Clone Source Repo
         uses: actions/checkout@v4
         with:
-          repository: domoinc/internal-domo-apis
-          token: ${{ steps.app-token.outputs.token }}
+          repository: ${{ env.SOURCE_OWNER }}/${{ env.SOURCE_REPO }}
+          token: ${{ steps.source-token.outputs.token }}
           path: source-repo
           fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: "3.10"
 
-      - name: Install Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install pyyaml
-
-      # Cross-repo change detection: Compare source YAML timestamps with destination YAML
-      # This is needed because we're syncing between two repos - git diff wouldn't detect these changes
       - name: Detect Changed YAML Files
         id: detect
         run: |
           python .github/scripts/detect_yaml_changes.py \
-            --source source-repo/api-docs/public \
-            --dest docs/API-Reference/Product-APIs \
-            --force ${{ github.event.inputs.force_regenerate || 'false' }}
+            --source "source-repo/${{ env.SOURCE_YAML_PATH }}" \
+            --dest "${{ env.DEST_YAML_PATH }}" \
+            --force ${{ github.event.inputs.force_sync || 'false' }}
 
-      - name: Check if Changes Detected
+      - name: Check for Changes
         id: check
         run: |
           if [ -f changed_files.txt ] && [ -s changed_files.txt ]; then
             echo "has_changes=true" >> $GITHUB_OUTPUT
-            echo "Changed files detected:"
+            echo "Changed files:"
             cat changed_files.txt
           else
             echo "has_changes=false" >> $GITHUB_OUTPUT
             echo "No changes detected"
           fi
 
-      # Read changed files list
-      - name: Read Changed Files
+      - name: Sync YAML Files
         if: steps.check.outputs.has_changes == 'true'
-        id: read-changes
         run: |
-          {
-            echo "changed_files<<EOF"
-            cat changed_files.txt
-            echo "EOF"
-          } >> $GITHUB_OUTPUT
+          python .github/scripts/sync_to_destination.py \
+            --source "source-repo/${{ env.SOURCE_YAML_PATH }}" \
+            --destination "${{ env.DEST_YAML_PATH }}" \
+            --changed-list changed_files.txt
 
-      # Enhance YAML files with AI-generated descriptions (action only enhances, does not create PRs)
-      - name: Enhance YAML Files
+      - name: Update API Navigation
         if: steps.check.outputs.has_changes == 'true'
         uses: DomoApps/documentation-generator-action@main
         with:
-          # Required
-          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          yaml_input_path: "./${{ env.DEST_YAML_PATH }}"
+          docs_json_path: "${{ env.DOCS_JSON_PATH }}"
+          openapi_base_path: "${{ env.OPENAPI_BASE_PATH }}"
 
-          # Paths
-          yaml_input_path: './source-repo/api-docs/public'
-          yaml_output_path: './temp-enhanced-yaml'  # Temporary directory for enhanced YAML
-
-          # Enhancement Configuration
-          enhancement_mode: 'missing_only'  # Only enhance missing descriptions
-          quality_threshold: '85'  # Minimum quality score for AI-generated descriptions
-
-          # AI Configuration
-          openai_model: 'gpt-4o'  # or 'gpt-4', 'gpt-3.5-turbo'
-          max_iterations: '3'  # Max refinement iterations (higher = better quality, more cost)
-          completeness_threshold: '90'  # Overall quality threshold (0-100)
-          timeout_minutes: '30'  # Max processing time
-
-          # Change Detection
-          changed_files: ${{ steps.read-changes.outputs.changed_files }}
-          process_changed_only: 'false'  # We already filtered via detect_yaml_changes.py
-
-          # PR creation disabled - we handle it below with individual PRs
-          create_pull_request: 'false'
-
-      # Create individual PRs for each enhanced YAML file
-      - name: Create Individual PRs for Enhanced YAML
+      - name: Build PR Body
         if: steps.check.outputs.has_changes == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
+        id: pr-body
         run: |
-          python .github/scripts/create_individual_prs.py \
-            --changed-list changed_files.txt \
-            --temp-dir ./temp-enhanced-yaml \
-            --dest-dir docs/API-Reference/Product-APIs \
-            --base-branch master \
-            --pr-branch-prefix yaml-enhance \
-            --openai-model gpt-4o \
-            --max-iterations 3 \
-            --quality-threshold 85 \
-            --repo DomoApps/domo-developer-portal
+          # Build list of changed files for PR body
+          FILES_LIST=""
+          if [ -f changed_files.txt ]; then
+            while IFS= read -r file; do
+              FILES_LIST="${FILES_LIST}- \`$(basename $file)\`"$'\n'
+            done < changed_files.txt
+          fi
+
+          # Write PR body to file (safer for multiline content)
+          cat > pr_body.md << 'PREOF'
+          ## OpenAPI Sync
+
+          This PR syncs updated OpenAPI specifications and navigation from the source repository.
+
+          ### Changes
+          - Synced YAML files from source repo
+          - Updated docs.json navigation entries
+
+          ### Files Updated
+          PREOF
+
+          echo "$FILES_LIST" >> pr_body.md
+
+          cat >> pr_body.md << 'PREOF'
+
+          ---
+          *This PR was created automatically by the OpenAPI sync workflow.*
+          PREOF
+
+      - name: Create Pull Request
+        if: steps.check.outputs.has_changes == 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ steps.dest-token.outputs.token }}
+          commit-message: "docs: Sync OpenAPI specs and update navigation"
+          title: "docs: Sync OpenAPI specifications"
+          body-path: pr_body.md
+          branch: openapi-sync
+          delete-branch: true
+          add-paths: |
+            ${{ env.DEST_YAML_PATH }}
+            ${{ env.DOCS_JSON_PATH }}
 
       - name: Summary
         if: always()
         run: |
-          echo "## 📝 YAML Enhancement Sync Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## OpenAPI Sync Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ "${{ steps.check.outputs.has_changes }}" == "true" ]; then
-            echo "✅ Changes detected and processed" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### Changed Files:" >> $GITHUB_STEP_SUMMARY
+            echo "PR created with the following changes:" >> $GITHUB_STEP_SUMMARY
             if [ -f changed_files.txt ]; then
               while IFS= read -r file; do
-                echo "- \`$file\`" >> $GITHUB_STEP_SUMMARY
+                echo "- \`$(basename $file)\`" >> $GITHUB_STEP_SUMMARY
               done < changed_files.txt
             fi
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### Actions Taken:" >> $GITHUB_STEP_SUMMARY
-            echo "- Enhanced OpenAPI YAML files with AI-generated descriptions" >> $GITHUB_STEP_SUMMARY
-            echo "- Synced enhanced YAML files to destination (preserving structure)" >> $GITHUB_STEP_SUMMARY
-            echo "- Created individual PR per file (skipped files with existing open PRs)" >> $GITHUB_STEP_SUMMARY
-            echo "- Committed enhanced YAML files to destination paths" >> $GITHUB_STEP_SUMMARY
           else
-            echo "ℹ️ No changes detected - YAML files are up to date" >> $GITHUB_STEP_SUMMARY
+            echo "No changes detected - YAML files are up to date" >> $GITHUB_STEP_SUMMARY
           fi

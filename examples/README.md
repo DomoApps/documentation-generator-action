@@ -1,143 +1,68 @@
-# Example Cross-Repository Sync Setup
+# Examples
 
-This directory contains example files for setting up cross-repository documentation synchronization.
+This directory contains example workflows demonstrating common usage patterns for the OpenAPI TOC Generator.
+
+## Workflow Examples
+
+### [basic-usage.yml](./basic-usage.yml)
+The simplest setup - processes all YAML files on every push and commits the updated `docs.json` directly.
+
+### [with-change-detection.yml](./with-change-detection.yml)
+Only processes YAML files that have changed, reducing unnecessary processing. Requires `fetch-depth: 0` for git history access.
+
+### [with-pull-request.yml](./with-pull-request.yml)
+Creates a pull request with the updated navigation instead of committing directly. Useful for review workflows.
+
+### [copy-yaml-files.yml](./copy-yaml-files.yml)
+Copies YAML files to a destination directory (e.g., your Mintlify docs folder) in addition to updating `docs.json`.
 
 ## Directory Structure
 
+A typical Mintlify docs repository using this action:
+
 ```
-examples/
-├── destination-repo/          # Files for the destination repository
-│   ├── workflows/
-│   │   └── sync-api-docs.yml           # Main sync workflow
-│   ├── scripts/
-│   │   ├── detect_yaml_changes.py      # Change detection script
-│   │   └── sync_to_destination.py      # File sync script
-│   └── doc-mapping.json                # File mapping configuration
-│
-└── source-repo/               # Files for the source repository (OPTIONAL)
+your-docs-repo/
+├── docs.json                 # Mintlify configuration (updated by action)
+├── openapi/
+│   └── product/              # OpenAPI specs copied here
+│       ├── users.yaml
+│       └── documents.yaml
+├── yaml/                     # Source YAML files (input)
+│   ├── users.yaml
+│   └── documents.yaml
+└── .github/
     └── workflows/
-        └── source-repo-notify.yml      # Notification workflow
+        └── update-api-nav.yml
 ```
 
-## Setup Instructions
+## Configuration Reference
 
-### Destination Repository (Required)
+| Input | Description | Default |
+|-------|-------------|---------|
+| `yaml_input_path` | Source directory for OpenAPI YAML files | `./yaml` |
+| `docs_json_path` | Path to Mintlify docs.json | **Required** |
+| `openapi_base_path` | Prefix for page references in docs.json | `openapi/product` |
+| `yaml_copy_destination` | Copy YAMLs here after processing | - |
+| `process_changed_only` | Only process changed files | `false` |
+| `create_pull_request` | Create PR instead of direct commit | `false` |
 
-Copy these files to your destination repository (e.g., `DomoApps/domo-developer-portal`):
+## Cross-Repo Sync
 
-```bash
-# In your destination repo
-mkdir -p .github/workflows .github/scripts
+For syncing OpenAPI specs from a separate source repository, see [destination-repo/](./destination-repo/).
 
-# Copy files from this repo
-cp examples/destination-repo/workflows/sync-api-docs.yml .github/workflows/
-cp examples/destination-repo/scripts/*.py .github/scripts/
-cp examples/destination-repo/doc-mapping.json .github/
+This includes:
+- **Scripts** for detecting changes and syncing files across repos
+- **Workflows** for both direct commit and PR-based approaches
+- Support for GitHub App authentication
+
 ```
-
-**Required secrets in destination repo:**
-- `APP_ID` - GitHub App ID
-- `APP_PRIVATE_KEY` - GitHub App private key
-- `OPENAI_API_KEY` - OpenAI API key
-
-See [GITHUB_APP_SETUP.md](../.github/GITHUB_APP_SETUP.md) for detailed setup instructions.
-
-### Source Repository (Optional)
-
-**⚠️ Only needed if you want real-time notifications!**
-
-If you cannot add secrets to your source repository, skip this section. The destination workflow runs on a schedule (every 6 hours) and doesn't require source repo configuration.
-
-If you want to enable real-time notifications:
-
-```bash
-# In your source repo (e.g., domoinc/internal-domo-apis)
-mkdir -p .github/workflows
-
-# Copy notification workflow
-cp examples/source-repo/workflows/source-repo-notify.yml .github/workflows/
+destination-repo/
+└── .github/
+    ├── scripts/
+    │   ├── detect_yaml_changes.py   # Detect changed files
+    │   ├── sync_to_destination.py   # Copy files to destination
+    │   └── create_individual_prs.py # Create PRs per file
+    └── workflows/
+        ├── sync-api-docs.yml        # Direct commit workflow
+        └── sync-with-prs.yml        # Individual PR workflow
 ```
-
-**Required secrets in source repo:**
-- `APP_ID` - GitHub App ID (same as destination)
-- `APP_PRIVATE_KEY` - GitHub App private key (same as destination)
-
-## Documentation
-
-- [Cross-Repository Sync Guide](../CROSS_REPO_SYNC.md) - Overview and setup
-- [GitHub App Setup Guide](../.github/GITHUB_APP_SETUP.md) - Detailed GitHub App configuration
-- [Main README](../README.md) - Action usage and configuration
-
-## How It Works
-
-### Scheduled Polling (Default)
-
-The destination repo workflow runs every 6 hours:
-1. Clones the source repository
-2. Detects changed YAML files by comparing timestamps
-3. Generates markdown documentation using AI
-4. Creates a pull request with updates
-
-**No source repo configuration needed!**
-
-### Real-time Notifications (Optional)
-
-If you set up the source repo workflow:
-1. Source repo detects YAML file changes
-2. Sends `repository_dispatch` event to destination
-3. Destination workflow runs immediately (instead of waiting for schedule)
-
-## Customization
-
-### Adjust Sync Schedule
-
-Edit `sync-api-docs.yml` in destination repo:
-
-```yaml
-schedule:
-  - cron: '0 */6 * * *'  # Every 6 hours (current)
-  # Examples:
-  # - cron: '0 * * * *'    # Every hour
-  # - cron: '0 0 * * *'    # Once per day at midnight
-```
-
-### Customize File Mapping
-
-Edit `doc-mapping.json` in destination repo:
-
-```json
-{
-  "source_base": "api-docs/public",
-  "dest_base": "docs/API-Reference/Product-APIs",
-  "file_mappings": {
-    "AI-Services.yaml": "AI-Services.md",
-    "Custom-Name.yaml": "Different-Output-Name.md"
-  },
-  "default_rule": {
-    "pattern": "*.yaml",
-    "output": "{basename}.md"
-  }
-}
-```
-
-## Troubleshooting
-
-### Workflow doesn't run
-
-Check that:
-- GitHub App is installed on both repositories
-- Secrets are correctly set in destination repo
-- Destination folder exists (`docs/API-Reference/Product-APIs/`)
-
-### Change detection issues
-
-The change detection compares file modification timestamps. If timestamps aren't reliable:
-
-1. Use manual trigger with "Force regenerate all docs" option
-2. Or adjust the detection script logic in `detect_yaml_changes.py`
-
-### Need help?
-
-See the full guides:
-- [CROSS_REPO_SYNC.md](../CROSS_REPO_SYNC.md)
-- [GITHUB_APP_SETUP.md](../.github/GITHUB_APP_SETUP.md)
