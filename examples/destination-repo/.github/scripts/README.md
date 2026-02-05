@@ -93,12 +93,11 @@ Use `sync-api-docs.yml` for automatic sync without PRs:
 
 ### PR-Based Workflow
 
-Use `sync-with-prs.yml` when you want review:
+Use `sync-with-prs.yml` + `update-navigation-on-merge.yml` when you want review:
 
-1. Detect changes
-2. Create individual PR for each changed file
-3. Review and merge PRs
-4. TOC generator runs on merge to update docs.json
+1. `sync-with-prs.yml`: Detect changes → Create individual PR for each file
+2. Review and merge PRs
+3. `update-navigation-on-merge.yml`: Triggers on merge → Updates docs.json
 
 ## Requirements
 
@@ -122,6 +121,7 @@ destination-repo/
     │   ├── sync_to_destination.py
     │   └── create_individual_prs.py
     └── workflows/
-        ├── sync-api-docs.yml    # Direct commit
-        └── sync-with-prs.yml    # Individual PRs
+        ├── sync-api-docs.yml              # Direct commit (all-in-one)
+        ├── sync-with-prs.yml              # Create individual PRs
+        └── update-navigation-on-merge.yml # Update docs.json on merge
 ```
