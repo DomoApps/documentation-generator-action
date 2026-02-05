@@ -7,9 +7,8 @@ These scripts are designed to be copied to your destination repository (e.g., yo
 These scripts work together to:
 1. Detect which YAML files in the source repo have changed
 2. Sync the YAML files to the destination repo
-3. Create PRs for review (optional)
-
-The TOC generator action then updates `docs.json` navigation automatically.
+3. Update docs.json navigation with the TOC generator
+4. Create a single PR with all changes for review
 
 ## Scripts
 
@@ -51,59 +50,26 @@ python sync_to_destination.py \
 - `--destination`: Destination directory for YAML files
 - `--changed-list`: File containing list of files to sync
 
----
+## Workflow
 
-### `create_individual_prs.py`
+Use `sync-api-docs.yml` for the complete sync workflow:
 
-Creates individual pull requests for each changed YAML file. Includes duplicate PR prevention.
-
-```bash
-python create_individual_prs.py \
-  --changed-list changed_files.txt \
-  --source-dir source-repo/api-specs \
-  --dest-dir openapi/product \
-  --base-branch main \
-  --pr-branch-prefix openapi-sync \
-  --repo your-org/your-repo
-```
-
-**Arguments:**
-- `--changed-list`: File containing list of changed YAML files
-- `--source-dir`: Source directory with YAML files
-- `--dest-dir`: Destination directory for YAML files
-- `--base-branch`: Base branch for PRs (default: main)
-- `--pr-branch-prefix`: Branch name prefix (default: openapi-sync)
-- `--repo`: GitHub repository in owner/repo format
-
-**Features:**
-- Duplicate PR prevention (skips files with existing open PRs)
-- Comprehensive error handling
-- Git branch management
-
-## Workflow Integration
-
-### Direct Commit Workflow
-
-Use `sync-api-docs.yml` for automatic sync without PRs:
-
-1. Detect changes
-2. Sync YAML files
+1. Detect changes in source repo
+2. Sync YAML files to destination
 3. Run TOC generator to update docs.json
-4. Commit directly to main
+4. Create a single PR with all changes (YAMLs + navigation)
 
-### PR-Based Workflow
+### Benefits
 
-Use `sync-with-prs.yml` + `update-navigation-on-merge.yml` when you want review:
-
-1. `sync-with-prs.yml`: Detect changes → Create individual PR for each file
-2. Review and merge PRs
-3. `update-navigation-on-merge.yml`: Triggers on merge → Updates docs.json
+- **Complete visibility**: Reviewers see both YAML and navigation changes in one PR
+- **Testable**: Navigation can be previewed before merge (if using Mintlify preview)
+- **No conflicts**: Single PR avoids merge conflicts on docs.json
+- **Simple**: One workflow instead of multiple
 
 ## Requirements
 
 - Python 3.7+
 - `git` CLI
-- `gh` (GitHub CLI) - for PR creation
 - GitHub App or PAT for cross-repo access
 
 ## File Structure
@@ -118,10 +84,7 @@ destination-repo/
 └── .github/
     ├── scripts/
     │   ├── detect_yaml_changes.py
-    │   ├── sync_to_destination.py
-    │   └── create_individual_prs.py
+    │   └── sync_to_destination.py
     └── workflows/
-        ├── sync-api-docs.yml              # Direct commit (all-in-one)
-        ├── sync-with-prs.yml              # Create individual PRs
-        └── update-navigation-on-merge.yml # Update docs.json on merge
+        └── sync-api-docs.yml    # Single workflow for sync + PR
 ```

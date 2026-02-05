@@ -1,7 +1,8 @@
 # Sync OpenAPI Specifications and Update Navigation
 #
 # This workflow runs in the destination repo (DomoApps/domo-developer-portal).
-# It syncs OpenAPI YAML files from the source repo and updates docs.json navigation.
+# It syncs OpenAPI YAML files from the source repo and updates docs.json navigation,
+# creating a single PR with all changes for review.
 
 name: Sync OpenAPI Specs
 
@@ -46,14 +47,24 @@ jobs:
       pull-requests: write
 
     steps:
-      - name: Generate GitHub App Token
+      # Token for source repo (cross-org)
+      - name: Generate Source Repo Token
         uses: actions/create-github-app-token@v1
-        id: app-token
+        id: source-token
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
           owner: ${{ env.SOURCE_OWNER }}
           repositories: ${{ env.SOURCE_REPO }}
+
+      # Token for destination repo (PRs)
+      - name: Generate Destination Repo Token
+        uses: actions/create-github-app-token@v1
+        id: dest-token
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          # No owner specified = current repo's org
 
       - name: Checkout Destination Repo
         uses: actions/checkout@v4
@@ -64,7 +75,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ${{ env.SOURCE_OWNER }}/${{ env.SOURCE_REPO }}
-          token: ${{ steps.app-token.outputs.token }}
+          token: ${{ steps.source-token.outputs.token }}
           path: source-repo
           fetch-depth: 0
 
@@ -109,14 +120,52 @@ jobs:
           docs_json_path: "${{ env.DOCS_JSON_PATH }}"
           openapi_base_path: "${{ env.OPENAPI_BASE_PATH }}"
 
-      - name: Commit Changes
+      - name: Build PR Body
         if: steps.check.outputs.has_changes == 'true'
+        id: pr-body
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add "${{ env.DEST_YAML_PATH }}" "${{ env.DOCS_JSON_PATH }}"
-          git diff --staged --quiet || git commit -m "docs: Sync OpenAPI specs and update navigation"
-          git push
+          # Build list of changed files for PR body
+          FILES_LIST=""
+          if [ -f changed_files.txt ]; then
+            while IFS= read -r file; do
+              FILES_LIST="${FILES_LIST}- \`$(basename $file)\`"$'\n'
+            done < changed_files.txt
+          fi
+
+          # Write PR body to file (safer for multiline content)
+          cat > pr_body.md << 'PREOF'
+          ## OpenAPI Sync
+
+          This PR syncs updated OpenAPI specifications and navigation from the source repository.
+
+          ### Changes
+          - Synced YAML files from source repo
+          - Updated docs.json navigation entries
+
+          ### Files Updated
+          PREOF
+
+          echo "$FILES_LIST" >> pr_body.md
+
+          cat >> pr_body.md << 'PREOF'
+
+          ---
+          *This PR was created automatically by the OpenAPI sync workflow.*
+          PREOF
+
+      - name: Create Pull Request
+        if: steps.check.outputs.has_changes == 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ steps.dest-token.outputs.token }}
+          commit-message: "docs: Sync OpenAPI specs and update navigation"
+          title: "docs: Sync OpenAPI specifications"
+          body-path: pr_body.md
+          branch: openapi-sync
+          delete-branch: true
+          add-paths: |
+            ${{ env.DEST_YAML_PATH }}
+            ${{ env.DOCS_JSON_PATH }}
 
       - name: Summary
         if: always()
@@ -124,7 +173,7 @@ jobs:
           echo "## OpenAPI Sync Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ "${{ steps.check.outputs.has_changes }}" == "true" ]; then
-            echo "Changes synced:" >> $GITHUB_STEP_SUMMARY
+            echo "PR created with the following changes:" >> $GITHUB_STEP_SUMMARY
             if [ -f changed_files.txt ]; then
               while IFS= read -r file; do
                 echo "- \`$(basename $file)\`" >> $GITHUB_STEP_SUMMARY
