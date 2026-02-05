@@ -19,41 +19,42 @@ sys.path.insert(0, os.path.dirname(__file__))
 from log import Log
 
 
-class ExpandedJSONEncoder(json.JSONEncoder):
+def _encode_json(obj: Any, level: int = 0) -> str:
     """
-    Custom JSON encoder that always expands arrays to one element per line.
+    Custom JSON encoder that collapses single-element arrays onto one line.
 
-    Python's default json.dump() collapses single-element arrays onto one line:
-        "pages": ["s/article/000005139"]
+    Multi-element arrays and objects are expanded normally with indentation.
+    Single-element arrays become: ["value"]
+    """
+    indent = "  " * level
+    next_indent = "  " * (level + 1)
 
-    This encoder ensures arrays are always expanded:
-        "pages": [
-          "s/article/000005139"
+    if obj is None:
+        return "null"
+    elif isinstance(obj, bool):
+        return "true" if obj else "false"
+    elif isinstance(obj, str):
+        return json.dumps(obj, ensure_ascii=False)
+    elif isinstance(obj, (int, float)):
+        return str(obj)
+    elif isinstance(obj, dict):
+        if not obj:
+            return "{}"
+        items = [
+            f'{next_indent}{json.dumps(k)}: {_encode_json(v, level + 1)}'
+            for k, v in obj.items()
         ]
-    """
-
-    def encode(self, obj: Any) -> str:
-        return self._encode(obj, 0)
-
-    def _encode(self, obj: Any, level: int) -> str:
-        indent = "  " * level
-        next_indent = "  " * (level + 1)
-
-        if isinstance(obj, dict):
-            if not obj:
-                return "{}"
-            items = [
-                f'{next_indent}"{k}": {self._encode(v, level + 1)}'
-                for k, v in obj.items()
-            ]
-            return "{\n" + ",\n".join(items) + f"\n{indent}}}"
-
-        elif isinstance(obj, list):
-            if not obj:
-                return "[]"
-            items = [f"{next_indent}{self._encode(v, level + 1)}" for v in obj]
-            return "[\n" + ",\n".join(items) + f"\n{indent}]"
-
+        return "{\n" + ",\n".join(items) + f"\n{indent}}}"
+    elif isinstance(obj, list):
+        if not obj:
+            return "[]"
+        # Collapse single-element arrays with simple values onto one line
+        if len(obj) == 1 and isinstance(obj[0], (str, int, float, bool, type(None))):
+            return f"[{json.dumps(obj[0], ensure_ascii=False)}]"
+        # Multi-element or complex arrays get expanded
+        items = [f"{next_indent}{_encode_json(v, level + 1)}" for v in obj]
+        return "[\n" + ",\n".join(items) + f"\n{indent}]"
+    else:
         return json.dumps(obj, ensure_ascii=False)
 
 
@@ -95,7 +96,7 @@ class DocsJsonManager:
         Log.print_green(f"Saving docs.json to: {self.docs_json_path}")
 
         with open(self.docs_json_path, "w", encoding="utf-8") as f:
-            f.write(ExpandedJSONEncoder().encode(self._data))
+            f.write(_encode_json(self._data))
             f.write("\n")
 
         Log.print_green("docs.json saved successfully")
