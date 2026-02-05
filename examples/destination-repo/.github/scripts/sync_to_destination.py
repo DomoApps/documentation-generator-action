@@ -44,9 +44,22 @@ def sync_files(
 
     os.makedirs(destination_dir, exist_ok=True)
 
+    # Build case-insensitive lookup for destination files
+    dest_files_lower = {
+        f.lower(): f for f in os.listdir(destination_dir)
+        if f.lower().endswith(('.yaml', '.yml'))
+    }
+
     for yaml_file in changed_yaml_files:
         yaml_filename = os.path.basename(yaml_file)
         dest_path = os.path.join(destination_dir, yaml_filename)
+
+        # Remove case-variant file if it exists with different casing
+        existing = dest_files_lower.get(yaml_filename.lower())
+        if existing and existing != yaml_filename:
+            old_path = os.path.join(destination_dir, existing)
+            os.remove(old_path)
+            print(f"Removed case-variant: {existing}")
 
         if not os.path.exists(yaml_file):
             print(f"WARNING: Source file not found: {yaml_file}")

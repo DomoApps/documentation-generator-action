@@ -19,6 +19,44 @@ sys.path.insert(0, os.path.dirname(__file__))
 from log import Log
 
 
+class ExpandedJSONEncoder(json.JSONEncoder):
+    """
+    Custom JSON encoder that always expands arrays to one element per line.
+
+    Python's default json.dump() collapses single-element arrays onto one line:
+        "pages": ["s/article/000005139"]
+
+    This encoder ensures arrays are always expanded:
+        "pages": [
+          "s/article/000005139"
+        ]
+    """
+
+    def encode(self, obj: Any) -> str:
+        return self._encode(obj, 0)
+
+    def _encode(self, obj: Any, level: int) -> str:
+        indent = "  " * level
+        next_indent = "  " * (level + 1)
+
+        if isinstance(obj, dict):
+            if not obj:
+                return "{}"
+            items = [
+                f'{next_indent}"{k}": {self._encode(v, level + 1)}'
+                for k, v in obj.items()
+            ]
+            return "{\n" + ",\n".join(items) + f"\n{indent}}}"
+
+        elif isinstance(obj, list):
+            if not obj:
+                return "[]"
+            items = [f"{next_indent}{self._encode(v, level + 1)}" for v in obj]
+            return "[\n" + ",\n".join(items) + f"\n{indent}]"
+
+        return json.dumps(obj, ensure_ascii=False)
+
+
 class DocsJsonManager:
     """
     Manages Mintlify docs.json file operations.
@@ -57,7 +95,7 @@ class DocsJsonManager:
         Log.print_green(f"Saving docs.json to: {self.docs_json_path}")
 
         with open(self.docs_json_path, "w", encoding="utf-8") as f:
-            json.dump(self._data, f, indent=2, ensure_ascii=False)
+            f.write(ExpandedJSONEncoder().encode(self._data))
             f.write("\n")
 
         Log.print_green("docs.json saved successfully")

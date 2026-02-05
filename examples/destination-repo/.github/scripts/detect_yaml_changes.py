@@ -48,9 +48,22 @@ def detect_changes(
     yaml_files = find_yaml_files(source_dir)
     print(f"Found {len(yaml_files)} YAML files in source")
 
+    # Build case-insensitive lookup for destination files
+    dest_files_lower = {}
+    if os.path.exists(dest_dir):
+        dest_files_lower = {
+            f.lower(): f for f in os.listdir(dest_dir)
+            if f.lower().endswith(('.yaml', '.yml'))
+        }
+
     for yaml_file in yaml_files:
         yaml_filename = os.path.basename(yaml_file)
-        dest_file_path = os.path.join(dest_dir, yaml_filename)
+        # Case-insensitive match: find actual destination filename
+        dest_actual = dest_files_lower.get(yaml_filename.lower())
+        if dest_actual:
+            dest_file_path = os.path.join(dest_dir, dest_actual)
+        else:
+            dest_file_path = os.path.join(dest_dir, yaml_filename)
 
         if not os.path.exists(dest_file_path):
             print(f"NEW: {yaml_filename}")
