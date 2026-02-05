@@ -186,6 +186,8 @@ class DocsJsonManager:
         """
         Insert a new TOC group or replace an existing one with the same name.
 
+        New groups are inserted in alphabetical order by group name.
+
         Args:
             group_name: The name of the group to insert/replace
             toc_entry: The TOC entry dictionary to insert
@@ -206,9 +208,20 @@ class DocsJsonManager:
                 pages[i] = toc_entry
                 return True
 
-        # No existing group found, append new one
+        # No existing group found, insert in alphabetical order
         Log.print_green(f"Adding new group: {group_name}")
-        pages.append(toc_entry)
+        group_name_lower = group_name.lower()
+
+        # Find insertion point to maintain alphabetical order
+        insert_index = len(pages)  # Default to end
+        for i, page in enumerate(pages):
+            if isinstance(page, dict) and "group" in page:
+                existing_name = page["group"].lower()
+                if group_name_lower < existing_name:
+                    insert_index = i
+                    break
+
+        pages.insert(insert_index, toc_entry)
         return True
 
     def insert_multiple_groups(
