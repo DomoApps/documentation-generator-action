@@ -10,6 +10,7 @@ specifically targeting the Product APIs group in the navigation structure.
 """
 
 import json
+import re
 from typing import Any, Dict, List, Optional
 from pathlib import Path
 import os
@@ -17,6 +18,27 @@ import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
 from log import Log
+
+
+# Matches a Mintlify OpenAPI page entry, e.g.
+#   "openapi/product/filesets.yaml GET /api/files/v1/filesets"
+# Used to distinguish generator-produced pages from human-authored ones.
+_OPENAPI_PAGE_RE = re.compile(r"^[^\s]+\.ya?ml\s+[A-Z]+\s+/")
+
+
+def _is_generated_page(item: Any) -> bool:
+    """Return True if a page entry was produced by this action.
+
+    Generated entries are OpenAPI page strings, or subgroups composed
+    entirely of generated entries. Everything else (e.g. a hand-added
+    Overview/landing page) is treated as human-authored and preserved
+    across a regeneration.
+    """
+    if isinstance(item, str):
+        return bool(_OPENAPI_PAGE_RE.match(item))
+    if isinstance(item, dict) and "pages" in item:
+        return all(_is_generated_page(p) for p in item["pages"])
+    return False
 
 
 def _encode_json(obj: Any, level: int = 0) -> str:
@@ -178,6 +200,28 @@ class DocsJsonManager:
             Log.print_red(f"Error navigating docs.json structure: {e}")
             return None
 
+    @staticmethod
+    def _merge_group(existing: Dict[str, Any], generated: Dict[str, Any]) -> Dict[str, Any]:
+        """Merge a freshly generated group entry into an existing one.
+
+        The generator owns only what it produces: the group name and the
+        OpenAPI-derived pages. Any other properties a human added to the
+        group (e.g. "tag", "icon", "expanded") and any non-generated pages
+        (e.g. a hand-added Overview page) are preserved, so a regeneration
+        never silently drops manual customizations.
+        """
+        merged = dict(generated)
+        # Preserve human-authored group properties the generator doesn't set.
+        for key, value in existing.items():
+            merged.setdefault(key, value)
+        # Preserve human-authored (non-generated) pages, in their original
+        # order, ahead of the regenerated OpenAPI content.
+        manual_pages = [
+            p for p in existing.get("pages", []) if not _is_generated_page(p)
+        ]
+        merged["pages"] = manual_pages + list(generated.get("pages", []))
+        return merged
+
     def insert_or_replace_group(
         self,
         group_name: str,
@@ -206,7 +250,7 @@ class DocsJsonManager:
         for i, page in enumerate(pages):
             if isinstance(page, dict) and page.get("group") == group_name:
                 Log.print_green(f"Replacing existing group: {group_name}")
-                pages[i] = toc_entry
+                pages[i] = self._merge_group(page, toc_entry)
                 return True
 
         # No existing group found, insert in alphabetical order
