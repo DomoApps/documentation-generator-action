@@ -459,6 +459,51 @@ class TestDocsJsonManager:
         assert len(pages) == 1  # Should still be 1, not 2
         assert pages[0]["pages"][0]["group"] == "Updated Tag"
 
+    def test_replace_preserves_manual_tag_and_pages(self, temp_docs_json):
+        """A replace must preserve human-authored group properties (e.g. a
+        'tag' badge) and non-generated pages (e.g. an Overview landing page).
+
+        The generator re-emits only {group, pages(openapi)}, so without a
+        merge these customizations would be lost on every spec sync.
+        """
+        manager = DocsJsonManager(temp_docs_json)
+        manager.load()
+
+        # Simulate a human having tagged the group and added an Overview page.
+        pages = manager.find_product_apis_pages()
+        existing = next(p for p in pages if p.get("group") == "Existing API")
+        existing["tag"] = "Beta"
+        existing["pages"].insert(0, "portal/existing-api-overview")
+
+        # The generator re-emits only the group name + fresh OpenAPI pages.
+        regenerated = {
+            "group": "Existing API",
+            "pages": [
+                {
+                    "group": "Endpoints",
+                    "pages": ["openapi/product/existing.yaml POST /new-endpoint"],
+                }
+            ],
+        }
+
+        result = manager.insert_or_replace_group("Existing API", regenerated)
+
+        assert result is True
+        pages = manager.find_product_apis_pages()
+        group = next(p for p in pages if p.get("group") == "Existing API")
+
+        # Manual group property survives the replace.
+        assert group.get("tag") == "Beta"
+        # Manual (non-OpenAPI) page survives, kept ahead of generated content.
+        assert group["pages"][0] == "portal/existing-api-overview"
+        # Regenerated OpenAPI content is present.
+        assert any(
+            isinstance(p, dict) and p.get("group") == "Endpoints"
+            for p in group["pages"]
+        )
+        # The stale generated page from before is gone (replaced, not duplicated).
+        assert "openapi/product/existing.yaml GET /test" not in group["pages"]
+
     def test_save_docs_json(self, temp_docs_json):
         """Test saving docs.json file."""
         manager = DocsJsonManager(temp_docs_json)
