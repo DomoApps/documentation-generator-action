@@ -1,6 +1,7 @@
 # OpenAPI TOC Generator for Mintlify
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FDomoApps%2Fdocumentation-generator-action.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2FDomoApps%2Fdocumentation-generator-action?ref=badge_shield)
 
 A GitHub Action that generates Mintlify-compatible Table of Contents (TOC) entries from OpenAPI YAML specifications. Automatically updates your `docs.json` navigation with structured API endpoint references.
 
@@ -136,3 +137,6 @@ pytest
 ## License
 
 Apache 2.0
+
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FDomoApps%2Fdocumentation-generator-action.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2FDomoApps%2Fdocumentation-generator-action?ref=badge_large)
