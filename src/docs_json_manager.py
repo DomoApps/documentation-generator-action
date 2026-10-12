@@ -62,7 +62,7 @@ class DocsJsonManager:
     """
     Manages Mintlify docs.json file operations.
 
-    Navigates to: Developer Portal → menu → groups → API Reference → pages → Product APIs → pages
+    Navigates to the "Product APIs" group inside the Developer Portal tab.
     """
 
     def __init__(self, docs_json_path: str):
@@ -108,11 +108,29 @@ class DocsJsonManager:
                 return item
         return None
 
+    def _find_group(self, node: Any, name: str) -> Optional[Dict[str, Any]]:
+        """Depth-first search for the first dict with group == name anywhere under node."""
+        if isinstance(node, dict):
+            if node.get("group") == name:
+                return node
+            children = node.values()
+        elif isinstance(node, list):
+            children = node
+        else:
+            return None
+
+        for child in children:
+            found = self._find_group(child, name)
+            if found is not None:
+                return found
+        return None
+
     def find_product_apis_pages(self, language: str = "en") -> Optional[List[Any]]:
         """
         Find the pages array within the Product APIs group.
 
-        Path: navigation.languages[lang].tabs[Developer Portal].menu[0].groups[API Reference].pages[Product APIs].pages
+        Located by searching the Developer Portal tab for the group named "Product APIs":
+        navigation.languages[lang].tabs[Developer Portal] ... [Product APIs].pages
 
         Args:
             language: Language code (default: "en")
@@ -145,29 +163,13 @@ class DocsJsonManager:
                 Log.print_red("Developer Portal tab not found")
                 return None
 
-            # Navigate through menu → groups → API Reference
-            menu = dev_portal_tab.get("menu", [])
-            if not menu:
-                Log.print_red("No menu found in Developer Portal tab")
-                return None
-
-            # First menu item contains groups
-            menu_item = menu[0] if menu else None
-            if not menu_item:
-                Log.print_red("No menu item found")
-                return None
-
-            groups = menu_item.get("groups", [])
-            api_ref = self._find_in_list(groups, "group", "API Reference")
-            if not api_ref:
-                Log.print_red("API Reference group not found")
-                return None
-
-            # Find Product APIs within API Reference
-            api_ref_pages = api_ref.get("pages", [])
-            product_apis = self._find_in_list(api_ref_pages, "group", "Product APIs")
+            # The Product APIs group has moved around as the nav was restructured
+            # (tab.menu[0].groups[API Reference].pages[...] and, more recently,
+            # tab.pages[...].pages[...]), so search the whole tab instead of
+            # hardcoding a path.
+            product_apis = self._find_group(dev_portal_tab, "Product APIs")
             if not product_apis:
-                Log.print_red("Product APIs group not found")
+                Log.print_red("Product APIs group not found in Developer Portal tab")
                 return None
 
             pages = product_apis.get("pages", [])
